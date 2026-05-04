@@ -1,20 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Download, BookOpen, FlaskConical, Palette, Globe, ChevronRight, File, Vault } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+import {
+  Search, Download, BookOpen, FlaskConical, Palette, Globe,
+  ChevronRight, File, Vault, LogOut, GraduationCap, User as UserIcon,
+} from 'lucide-react';
+import { supabase } from './lib/supabase';
+import { useAuth } from './context/AuthContext';
+import AuthPage from './pages/AuthPage';
 
 interface Resource {
   id: string;
   title: string;
   category: string;
   file_url: string;
+  access_level: string;
 }
-
-const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
 
 const CATEGORIES = ['Mathematics', 'Science', 'Art', 'Social Sciences'] as const;
 type Category = typeof CATEGORIES[number];
@@ -51,57 +50,6 @@ const CATEGORY_CONFIG: Record<Category, {
   },
 };
 
-function ErrorDisplay({ message }: { message: string }) {
-  return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#050505',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '16px',
-    }}>
-      <div style={{
-        maxWidth: '500px',
-        textAlign: 'center',
-      }}>
-        <div style={{ color: '#EF4444', fontSize: '48px', marginBottom: '16px' }}>❌</div>
-        <h1 style={{ color: '#ffffff', fontSize: '24px', fontWeight: 'bold', marginBottom: '12px' }}>
-          {message.includes('Keys') ? 'Supabase Keys Missing' : 'Connection Error'}
-        </h1>
-        <p style={{
-          color: '#EF4444',
-          fontSize: '14px',
-          fontFamily: 'monospace',
-          lineHeight: '1.6',
-          padding: '12px',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          borderRadius: '8px',
-          marginBottom: '16px',
-          wordBreak: 'break-word',
-        }}>
-          {message}
-        </p>
-        <button
-          onClick={() => window.location.reload()}
-          style={{
-            background: '#E50914',
-            color: '#ffffff',
-            border: 'none',
-            padding: '10px 20px',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: 'pointer',
-          }}
-        >
-          Retry
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function SkeletonCard() {
   return (
     <div className="flex-shrink-0 w-56 rounded-2xl border border-white/5 bg-white/3 p-4 animate-pulse">
@@ -128,22 +76,17 @@ function ResourceCard({ resource }: { resource: Resource }) {
   const accent = config?.accent ?? '#E50914';
 
   return (
-    <div
-      className="group flex-shrink-0 w-56 rounded-2xl border border-white/5 bg-[#0d0d0d] p-4 transition-all duration-300 hover:scale-[1.02] hover:border-white/20 hover:shadow-2xl cursor-pointer"
-    >
+    <div className="group flex-shrink-0 w-56 rounded-2xl border border-white/5 bg-[#0d0d0d] p-4 transition-all duration-300 hover:scale-[1.02] hover:border-white/20 hover:shadow-2xl cursor-pointer">
       <div
         className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110"
         style={{ background: `${accent}22`, color: accent }}
       >
         <File size={20} />
       </div>
-
       <h3 className="text-sm font-bold text-white leading-snug mb-2 line-clamp-3" style={{ letterSpacing: '-0.02em' }}>
         {resource.title}
       </h3>
-
       <p className="text-[11px] text-white/40 mb-4">{resource.category}</p>
-
       <div className="flex gap-2">
         <button
           className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-all duration-200 active:scale-95 hover:brightness-110"
@@ -291,14 +234,9 @@ function BentoGrid({ counts, loading, onSelect, active }: BentoGridProps) {
   );
 }
 
-export default function App() {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return <ErrorDisplay message="VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY not configured" />;
-  }
-
-  if (!supabase) {
-    return <ErrorDisplay message="Failed to initialize Supabase client" />;
-  }
+function Library() {
+  const { profile, signOut } = useAuth();
+  const isTeacher = profile?.role === 'teacher';
 
   const [query, setQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
@@ -307,32 +245,19 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<Resource[]>([]);
   const [searching, setSearching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchAll() {
       setLoading(true);
-      setError(null);
-      try {
-        const { data, error: fetchError } = await supabase
-          .from('resources')
-          .select('id, title, category, file_url')
-          .order('id', { ascending: false });
-
-        if (fetchError) {
-          throw new Error(`Database Error: ${fetchError.message}`);
-        }
-        setAllResources(data ?? []);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Unknown error fetching resources';
-        setError(msg);
-        console.error('Fetch error:', msg);
-      } finally {
-        setLoading(false);
-      }
+      const { data } = await supabase
+        .from('resources')
+        .select('id, title, category, file_url, access_level')
+        .order('id', { ascending: false });
+      setAllResources(data ?? []);
+      setLoading(false);
     }
     fetchAll();
-  }, []);
+  }, [isTeacher]);
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -341,35 +266,19 @@ export default function App() {
       return;
     }
     setSearching(true);
-    setError(null);
-    try {
-      const { data, error: searchError } = await supabase
-        .from('resources')
-        .select('id, title, category, file_url')
-        .or(`title.ilike.%${q}%,category.eq.${q}`)
-        .order('id', { ascending: false });
-
-      if (searchError) {
-        throw new Error(`Search Error: ${searchError.message}`);
-      }
-      setSearchResults(data ?? []);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error searching';
-      setError(msg);
-      console.error('Search error:', msg);
-    } finally {
-      setSearching(false);
-    }
-  }, []);
+    const { data } = await supabase
+      .from('resources')
+      .select('id, title, category, file_url, access_level')
+      .or(`title.ilike.%${q}%,category.eq.${q}`)
+      .order('id', { ascending: false });
+    setSearchResults(data ?? []);
+    setSearching(false);
+  }, [isTeacher]);
 
   useEffect(() => {
     const t = setTimeout(() => doSearch(query), 280);
     return () => clearTimeout(t);
   }, [query, doSearch]);
-
-  if (error) {
-    return <ErrorDisplay message={error} />;
-  }
 
   const counts = CATEGORIES.reduce<Record<string, number>>((acc, cat) => {
     acc[cat] = allResources.filter(r => r.category === cat).length;
@@ -377,7 +286,6 @@ export default function App() {
   }, {});
 
   const byCategory = (cat: Category) => allResources.filter(r => r.category === cat);
-
   const isSearching = query.trim().length > 0;
 
   const handleCategorySelect = (cat: Category) => {
@@ -386,6 +294,9 @@ export default function App() {
       document.getElementById(`cat-${cat}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
   };
+
+  const roleColor = isTeacher ? '#10B981' : '#3B82F6';
+  const RoleIcon = isTeacher ? UserIcon : GraduationCap;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
@@ -401,6 +312,7 @@ export default function App() {
             </span>
             <span className="text-[10px] font-bold text-white/30 border border-white/10 rounded px-1.5 py-0.5 tracking-widest">2.0</span>
           </div>
+
           <nav className="hidden md:flex items-center gap-6">
             {CATEGORIES.map(cat => (
               <button
@@ -418,6 +330,23 @@ export default function App() {
               </button>
             ))}
           </nav>
+
+          <div className="flex items-center gap-3">
+            <div
+              className="hidden sm:flex items-center gap-2 text-[11px] font-bold px-3 py-1.5 rounded-full"
+              style={{ background: `${roleColor}15`, color: roleColor }}
+            >
+              <RoleIcon size={12} />
+              <span className="capitalize">{profile?.role ?? 'user'}</span>
+            </div>
+            <button
+              onClick={signOut}
+              className="flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition-colors duration-200 px-2 py-1.5 rounded-lg hover:bg-white/5"
+            >
+              <LogOut size={13} />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -431,16 +360,18 @@ export default function App() {
           </div>
           <h1
             className="text-4xl sm:text-5xl lg:text-6xl font-black text-white mb-4 leading-none"
-            style={{ letterSpacing: '-0.05em', fontFamily: 'Inter, sans-serif' }}
+            style={{ letterSpacing: '-0.05em' }}
           >
             Your Academic<br />
             <span className="text-[#E50914]">Library.</span> Reimagined.
           </h1>
           <p className="text-sm text-white/40 max-w-md mx-auto mb-10 leading-relaxed">
-            Thousands of curated resources across Mathematics, Science, Art, and Social Sciences — all in one vault.
+            {isTeacher
+              ? 'Full access to all curated resources across every subject and access level.'
+              : 'Curated resources across Mathematics, Science, Art, and Social Sciences.'}
           </p>
 
-          {/* Hero Search */}
+          {/* Search */}
           <div className="relative max-w-2xl mx-auto">
             <div
               className="relative rounded-2xl border transition-all duration-300"
@@ -466,14 +397,14 @@ export default function App() {
                 onBlur={() => setSearchFocused(false)}
                 placeholder="Search by title or category..."
                 className="w-full bg-transparent text-white text-sm font-medium placeholder-white/25 pl-12 pr-10 py-4 rounded-2xl outline-none"
-                style={{ letterSpacing: '-0.01em', fontFamily: 'Inter, sans-serif' }}
+                style={{ letterSpacing: '-0.01em' }}
               />
               {query && (
                 <button
                   onMouseDown={e => { e.preventDefault(); setQuery(''); }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 text-xs transition-colors w-5 h-5 flex items-center justify-center"
                 >
-                  ✕
+                  x
                 </button>
               )}
             </div>
@@ -484,7 +415,7 @@ export default function App() {
         {isSearching && (
           <section>
             <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-base font-black text-white" style={{ letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+              <h2 className="text-base font-black text-white" style={{ letterSpacing: '-0.04em' }}>
                 {searching ? 'Searching vault...' : `${searchResults.length} result${searchResults.length !== 1 ? 's' : ''} for`}
               </h2>
               {!searching && (
@@ -510,7 +441,7 @@ export default function App() {
           <>
             <section>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-black text-white" style={{ letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>Browse by Subject</h2>
+                <h2 className="text-base font-black text-white" style={{ letterSpacing: '-0.04em' }}>Browse by Subject</h2>
                 {activeCategory && (
                   <button
                     onClick={() => setActiveCategory(null)}
@@ -557,7 +488,7 @@ export default function App() {
             <div className="w-5 h-5 rounded bg-[#E50914] flex items-center justify-center">
               <Vault size={10} className="text-white" />
             </div>
-            <span className="text-xs font-black text-white/40" style={{ letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>ScholarVault 2.0</span>
+            <span className="text-xs font-black text-white/40" style={{ letterSpacing: '-0.04em' }}>ScholarVault 2.0</span>
           </div>
           <p className="text-[11px] text-white/20">Academic excellence, curated.</p>
         </div>
@@ -571,4 +502,27 @@ export default function App() {
       `}</style>
     </div>
   );
+}
+
+export default function App() {
+  const { session, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#E50914] flex items-center justify-center animate-pulse">
+            <Vault size={22} className="text-white" />
+          </div>
+          <p className="text-xs text-white/30 tracking-widest uppercase">Loading vault...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <AuthPage />;
+  }
+
+  return <Library />;
 }
