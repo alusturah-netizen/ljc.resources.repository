@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Search, Download, BookOpen, FlaskConical, Palette, Globe,
-  ChevronRight, File, Vault, LogOut, GraduationCap, User as UserIcon,
+  ChevronRight, File, Vault, LogOut, GraduationCap, User as UserIcon, Upload as UploadIcon,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { useAuth } from './context/AuthContext';
 import AuthPage from './pages/AuthPage';
+import UploadModal from './components/UploadModal';
 
 interface Resource {
   id: string;
@@ -245,17 +246,19 @@ function Library() {
   const [loading, setLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<Resource[]>([]);
   const [searching, setSearching] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  async function fetchAll() {
+    setLoading(true);
+    const { data } = await supabase
+      .from('resources')
+      .select('id, title, category, file_url, access_level')
+      .order('id', { ascending: false });
+    setAllResources(data ?? []);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    async function fetchAll() {
-      setLoading(true);
-      const { data } = await supabase
-        .from('resources')
-        .select('id, title, category, file_url, access_level')
-        .order('id', { ascending: false });
-      setAllResources(data ?? []);
-      setLoading(false);
-    }
     fetchAll();
   }, [isTeacher]);
 
@@ -332,6 +335,16 @@ function Library() {
           </nav>
 
           <div className="flex items-center gap-3">
+            {isTeacher && (
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="hidden sm:flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 hover:brightness-110 active:scale-95"
+                style={{ background: '#E50914', color: '#fff' }}
+              >
+                <UploadIcon size={13} />
+                Upload
+              </button>
+            )}
             <div
               className="hidden sm:flex items-center gap-2 text-[11px] font-bold px-3 py-1.5 rounded-full"
               style={{ background: `${roleColor}15`, color: roleColor }}
@@ -480,6 +493,12 @@ function Library() {
           </>
         )}
       </main>
+
+      <UploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onSuccess={fetchAll}
+      />
 
       {/* Footer */}
       <footer className="border-t border-white/5 mt-20 py-8">
