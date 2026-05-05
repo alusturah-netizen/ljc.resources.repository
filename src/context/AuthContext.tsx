@@ -25,42 +25,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   async function fetchProfile(uid: string) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, email, role')
-      .eq('id', uid)
-      .maybeSingle();
-    setProfile(data as Profile | null);
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, email, role')
+        .eq('id', uid)
+        .maybeSingle();
+      setProfile(data as Profile | null);
+    } catch (err) {
+      console.error('Error fetching profile:', err);
+      setProfile(null);
+    }
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        fetchProfile(s.user.id).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
+    let isMounted = true;
+
+    async function initAuth() {
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (isMounted) {
+          setSession(s);
+          setUser(s?.user ?? null);
+          if (s?.user) {
+            await fetchProfile(s.user.id);
+          }
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Error initializing auth:', err);
+        if (isMounted) setLoading(false);
       }
-    });
+    }
+
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        (async () => {
-          await fetchProfile(s.user.id);
-        })();
-      } else {
-        setProfile(null);
+      if (isMounted) {
+        setSession(s);
+        setUser(s?.user ?? null);
+        if (s?.user) {
+          (async () => {
+            await fetchProfile(s.user.id);
+          })();
+        } else {
+          setProfile(null);
+        }
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function signOut() {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Error signing out:', err);
+    }
   }
 
   return (

@@ -35,6 +35,8 @@ export default function AuthPage() {
         const { error: signUpError } = await supabase.auth.signUp({ email, password });
         if (signUpError) throw signUpError;
         setSuccess('Account created! You can now sign in.');
+        setEmail('');
+        setPassword('');
         setMode('login');
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
@@ -42,8 +44,8 @@ export default function AuthPage() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
+      console.error('Auth error:', err);
       setError(msg);
-    } finally {
       setLoading(false);
     }
   }
