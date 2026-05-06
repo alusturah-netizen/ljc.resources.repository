@@ -6,9 +6,31 @@ type AuthMode = 'login' | 'signup';
 
 function getRoleHint(email: string): 'student' | 'teacher' | null {
   if (!email.includes('@')) return null;
-  if (/[a-zA-Z]+\d{4}@loyolajesuit\.org$/i.test(email)) return 'student';
-  if (email.toLowerCase().endsWith('@loyolajesuit.org')) return 'teacher';
+  if (/^[a-zA-Z]+\d{4}@loyolajesuit\.org$/i.test(email)) return 'student';
+  if (/^[a-zA-Z]+@loyolajesuit\.org$/i.test(email)) return 'teacher';
   return null;
+}
+
+function validateSignUpEmail(email: string): { valid: boolean; error?: string } {
+  if (!email.trim()) {
+    return { valid: false, error: 'Email is required' };
+  }
+
+  if (!email.toLowerCase().endsWith('@loyolajesuit.org')) {
+    return { valid: false, error: 'Please use your official school email.' };
+  }
+
+  const localPart = email.split('@')[0];
+
+  // Must be either letters only (teacher) or letters + 4 digits (student)
+  const isValidTeacher = /^[a-zA-Z]+$/.test(localPart);
+  const isValidStudent = /^[a-zA-Z]+\d{4}$/.test(localPart);
+
+  if (!isValidTeacher && !isValidStudent) {
+    return { valid: false, error: 'Email format invalid. Use letters or letters+4 digits before @loyolajesuit.org' };
+  }
+
+  return { valid: true };
 }
 
 const ROLE_COLORS = { student: '#3B82F6', teacher: '#10B981' };
@@ -23,11 +45,22 @@ export default function AuthPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const roleHint = getRoleHint(email);
+  const signupValidation = mode === 'signup' ? validateSignUpEmail(email) : { valid: true };
+  const isSubmitDisabled = mode === 'signup' && !signupValidation.valid;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (mode === 'signup') {
+      const validation = validateSignUpEmail(email);
+      if (!validation.valid) {
+        setError(validation.error || 'Invalid email');
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -111,7 +144,13 @@ export default function AuthPage() {
                   style={{ fontFamily: 'Inter, sans-serif' }}
                 />
               </div>
-              {roleHint && (
+              {mode === 'signup' && !signupValidation.valid && (
+                <div className="flex items-center gap-2 text-[11px] font-bold px-3 py-1.5 rounded-lg mt-1 bg-red-500/10 text-red-400">
+                  <span className="w-1.5 h-1.5 rounded-full inline-block bg-red-400" />
+                  {signupValidation.error}
+                </div>
+              )}
+              {roleHint && signupValidation.valid && (
                 <div
                   className="flex items-center gap-2 text-[11px] font-bold px-3 py-1.5 rounded-lg mt-1"
                   style={{ background: `${ROLE_COLORS[roleHint]}15`, color: ROLE_COLORS[roleHint] }}
@@ -169,14 +208,15 @@ export default function AuthPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || isSubmitDisabled}
               className="w-full py-3.5 rounded-xl text-sm font-black transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               style={{
-                background: loading ? 'rgba(229,9,20,0.5)' : '#E50914',
+                background: (loading || isSubmitDisabled) ? 'rgba(229,9,20,0.5)' : '#E50914',
                 color: '#fff',
                 letterSpacing: '-0.02em',
-                boxShadow: loading ? 'none' : '0 8px 30px rgba(229,9,20,0.3)',
+                boxShadow: (loading || isSubmitDisabled) ? 'none' : '0 8px 30px rgba(229,9,20,0.3)',
               }}
+              title={isSubmitDisabled ? signupValidation.error : undefined}
             >
               {loading
                 ? (mode === 'login' ? 'Signing in...' : 'Creating account...')
