@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Search, Download, library-big, FlaskConical, Palette, Globe,
+  Search, Download, BookOpen, FlaskConical, Palette, Globe,
   ChevronRight, File, Vault, LogOut, GraduationCap, User as UserIcon, Upload as UploadIcon,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
