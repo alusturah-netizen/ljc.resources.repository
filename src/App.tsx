@@ -77,40 +77,27 @@ function ResourceCard({ resource }: { resource: Resource }) {
   const accent = config?.accent ?? '#E50914';
 
   return (
-    <div className="group w-full bg-[#0d0d0d] rounded-2xl border border-white/5 p-4 transition-all duration-300 hover:scale-[1.05] hover:border-white/20 hover:shadow-2xl cursor-pointer flex flex-col justify-between">
-      <div>
-        {/* Cover Image Wrapper */}
-        <div className="aspect-[3/4] w-full bg-zinc-900 rounded-xl relative overflow-hidden mb-4">
-          <img 
-            src={resource.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=500"} 
-            alt={resource.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-            <span 
-              className="text-xs text-white px-3 py-1.5 rounded-md font-bold tracking-wide w-full text-center transition-transform transform translate-y-2 group-hover:translate-y-0 duration-300"
-              style={{ backgroundColor: accent }}
-            >
-              Open Resource
-            </span>
-          </div>
-        </div>
-
-        {/* Resource Meta */}
-        <span 
-          className="text-[10px] font-black uppercase tracking-widest"
-          style={{ color: accent }}
-        >
-          {resource.category}
-        </span>
-        <h3 className="text-white font-extrabold text-base mt-1 line-clamp-2 group-hover:text-[#E50914] transition-colors duration-200">
-          {resource.title}
-        </h3>
+    <div className="group flex-shrink-0 w-56 rounded-2xl border border-white/5 bg-[#0d0d0d] p-4 transition-all duration-300 hover:scale-[1.02] hover:border-white/20 hover:shadow-2xl cursor-pointer">
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110"
+        style={{ background: `${accent}22`, color: accent }}
+      >
+        <File size={20} />
       </div>
-      
-      <p className="text-zinc-500 text-xs truncate mt-2 font-medium">
-        By {resource.author || "Academic Board"}
-      </p>
+      <h3 className="text-sm font-bold text-white leading-snug mb-2 line-clamp-3" style={{ letterSpacing: '-0.02em' }}>
+        {resource.title}
+      </h3>
+      <p className="text-[11px] text-white/40 mb-4">{resource.category}</p>
+      <div className="flex gap-2">
+        <button
+          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-all duration-200 active:scale-95 hover:brightness-110"
+          style={{ background: '#E50914', color: '#fff' }}
+          onClick={() => resource.file_url && window.open(resource.file_url, '_blank')}
+        >
+          <Download size={12} />
+          Download
+        </button>
+      </div>
     </div>
   );
 }
