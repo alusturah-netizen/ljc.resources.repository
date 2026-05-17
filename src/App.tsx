@@ -577,14 +577,7 @@ export default function App() {
           </div>
           <p className="text-xs text-white/30 tracking-widest uppercase">Loading vault...</p>
         </div>
-// This cleanly wraps up the loading check block from earlier
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        {/* Your loading elements... */}
-      </div>
-    );
-  }
+
 
   if (!session) {
     return <AuthPage />;
