@@ -71,37 +71,64 @@ function SkeletonGrid() {
     </div>
   );
 }
-
-function ResourceCard({ resource }: { resource: Resource }) {
-  const config = CATEGORY_CONFIG[resource.category as Category];
-  const accent = config?.accent ?? '#E50914';
-
+function ResourceModal({ resource, onClose }: { resource: Resource; onClose: () => void }) {
   return (
-    <div className="group flex-shrink-0 w-56 rounded-2xl border border-white/5 bg-[#0d0d0d] p-4 transition-all duration-300 hover:scale-[1.02] hover:border-white/20 hover:shadow-2xl cursor-pointer">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      onClick={onClose}
+    >
       <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110"
-        style={{ background: `${accent}22`, color: accent }}
+        className="relative bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 w-[340px] max-w-full shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
-        <File size={20} />
-      </div>
-      <h3 className="text-sm font-bold text-white leading-snug mb-2 line-clamp-3" style={{ letterSpacing: '-0.02em' }}>
-        {resource.title}
-      </h3>
-      <p className="text-[11px] text-white/40 mb-4">{resource.category}</p>
-      <div className="flex gap-2">
         <button
-          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-all duration-200 active:scale-95 hover:brightness-110"
-          style={{ background: '#E50914', color: '#fff' }}
+          onClick={onClose}
+          className="absolute top-3 right-4 text-white/50 hover:text-white text-xl"
+        >✕</button>
+        {resource.cover_url ? (
+          <img src={resource.cover_url} alt={resource.title}
+            className="w-full h-48 object-cover rounded-xl mb-4" />
+        ) : (
+          <div className="w-full h-48 bg-white/10 rounded-xl mb-4 flex items-center justify-center text-white/30 text-sm">No Cover Image</div>
+        )}
+        <h2 className="text-white font-bold text-lg mb-1">{resource.title}</h2>
+        <p className="text-white/50 text-xs mb-1">{resource.category}</p>
+        <p className="text-white/70 text-sm mb-4">by {resource.author}</p>
+        <button
           onClick={() => resource.file_url && window.open(resource.file_url, '_blank')}
-        >
-          <Download size={12} />
-          Download
-        </button>
+          className="w-full py-2 rounded-lg font-semibold text-white text-sm"
+          style={{ background: '#E50914' }}
+        >⬇ Download</button>
       </div>
     </div>
   );
 }
+function ResourceCard({ resource }: { resource: Resource }) {
+  const config = CATEGORY_CONFIG[resource.category as Category];
+  const accent = config?.accent ?? '#E50914';
+  const [showModal, setShowModal] = React.useState(false);
 
+  return (
+    <>
+      {showModal && <ResourceModal resource={resource} onClose={() => setShowModal(false)} />}
+      <div
+        className="group flex-shrink-0 w-56 rounded-2xl border border-white/5 bg-[#0d0d0d] p-4 transition-all duration-300 hover:scale-[1.02] hover:border-white/20 hover:shadow-2xl cursor-pointer"
+        onClick={() => setShowModal(true)}
+      >
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110"
+          style={{ background: `${accent}22`, color: accent }}
+        >
+          <File size={20} />
+        </div>
+        <h3 className="text-sm font-bold text-white leading-snug mb-2 line-clamp-3" style={{ letterSpacing: '-0.02em' }}>
+          {resource.title}
+        </h3>
+        <p className="text-[11px] text-white/40 mb-4">{resource.category}</p>
+      </div>
+    </>
+  );
+}
 function VaultEmpty() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
