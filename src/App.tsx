@@ -72,50 +72,32 @@ function SkeletonGrid() {
   );
 }
 
-// 1. Update line 75 to accept the state setter function:
-function ResourceCard({ resource, onSelect }: { resource: Resource; onSelect: (r: Resource) => void }) {
+function ResourceCard({ resource }: { resource: Resource }) {
   const config = CATEGORY_CONFIG[resource.category as Category];
   const accent = config?.accent ?? '#E50914';
 
   return (
-    // 2. Add the onClick directly to line 80:
-    <div 
-      onClick={() => onSelect(resource)}
-      className="group w-full bg-[#0d0d0d] rounded-2xl border border-white/5 p-4 transition-all duration-300 hover:scale-[1.05] hover:border-white/20 hover:shadow-2xl cursor-pointer flex flex-col justify-between"
-    >
-      <div>
-        {/* Cover Image Wrapper */}
-        <div className="aspect-[3/4] w-full bg-zinc-900 rounded-xl relative overflow-hidden mb-4">
-          <img 
-            src={resource.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=500"} 
-            alt={resource.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-            <span 
-              className="text-xs text-white px-3 py-1.5 rounded-md font-bold tracking-wide w-full text-center transition-transform transform translate-y-2 group-hover:translate-y-0 duration-300"
-              style={{ backgroundColor: accent }}
-            >
-              Open Resource
-            </span>
-          </div>
-        </div>
-
-        {/* Resource Meta */}
-        <span 
-          className="text-[10px] font-black uppercase tracking-widest"
-          style={{ color: accent }}
-        >
-          {resource.category}
-        </span>
-        <h3 className="text-white font-extrabold text-base mt-1 line-clamp-2 group-hover:text-[#E50914] transition-colors duration-200">
-          {resource.title}
-        </h3>
+    <div className="group flex-shrink-0 w-56 rounded-2xl border border-white/5 bg-[#0d0d0d] p-4 transition-all duration-300 hover:scale-[1.02] hover:border-white/20 hover:shadow-2xl cursor-pointer">
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110"
+        style={{ background: `${accent}22`, color: accent }}
+      >
+        <File size={20} />
       </div>
-      
-      <p className="text-zinc-500 text-xs truncate mt-2 font-medium">
-        By {resource.author || "Academic Board"}
-      </p>
+      <h3 className="text-sm font-bold text-white leading-snug mb-2 line-clamp-3" style={{ letterSpacing: '-0.02em' }}>
+        {resource.title}
+      </h3>
+      <p className="text-[11px] text-white/40 mb-4">{resource.category}</p>
+      <div className="flex gap-2">
+        <button
+          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-all duration-200 active:scale-95 hover:brightness-110"
+          style={{ background: '#E50914', color: '#fff' }}
+          onClick={() => resource.file_url && window.open(resource.file_url, '_blank')}
+        >
+          <Download size={12} />
+          Download
+        </button>
+      </div>
     </div>
   );
 }
@@ -252,12 +234,8 @@ function BentoGrid({ counts, loading, onSelect, active }: BentoGridProps) {
     </div>
   );
 }
-interface LibraryProps {
-  selectedResource: Resource | null;
-  setSelectedResource: (resource: Resource | null) => void;
-}
 
-function Library({ selectedResource, setSelectedResource }: LibraryProps) {
+function Library() {
   const { profile, signOut } = useAuth();
   const isTeacher = profile?.role === 'teacher';
 
@@ -269,15 +247,13 @@ function Library({ selectedResource, setSelectedResource }: LibraryProps) {
   const [searchResults, setSearchResults] = useState<Resource[]>([]);
   const [searching, setSearching] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  // Line 272 duplicate state deleted!
-  
- async function fetchAll() {
+
+  async function fetchAll() {
     setLoading(true);
     const { data } = await supabase
       .from('resources')
-      .select('*') 
+      .select('id, title, category, file_url, access_level')
       .order('id', { ascending: false });
-      
     setAllResources(data ?? []);
     setLoading(false);
   }
@@ -325,17 +301,8 @@ function Library({ selectedResource, setSelectedResource }: LibraryProps) {
   const roleColor = isTeacher ? '#10B981' : '#3B82F6';
   const RoleIcon = isTeacher ? UserIcon : GraduationCap;
 
- return (
-    <div className="min-h-screen bg-[#050505] text-white flex flex-col font-sans">
-      
-      {/* 🟢 PASTE THIS EXACTLY HERE: */}
-      <ResourceModal 
-        resource={selectedResource} 
-        onClose={() => setSelectedResource(null)} 
-      />
-
-      {/* Leave all your existing code exactly as it is below this line! */}
-      {/* (Your header, navigation, and book grids) */}
+  return (
+    <div className="min-h-screen bg-[#050505] text-white">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
@@ -475,14 +442,8 @@ function Library({ selectedResource, setSelectedResource }: LibraryProps) {
             ) : searchResults.length === 0 ? (
               <VaultEmpty />
             ) : (
-             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 w-full">
-              {filteredResources.map((resource) => (
-  <ResourceCard 
-    key={resource.id} 
-    resource={resource} 
-    onSelect={setSelectedResource} // Pass the state setter function here!
-  />
-))}
+              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                {searchResults.map(r => <ResourceCard key={r.id} resource={r} />)}
               </div>
             )}
           </section>
@@ -564,7 +525,6 @@ function Library({ selectedResource, setSelectedResource }: LibraryProps) {
 
 export default function App() {
   const { session, loading } = useAuth();
-  const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
 
   if (loading) {
     return (
@@ -577,77 +537,11 @@ export default function App() {
         </div>
       </div>
     );
-  } // 🟢 This cleanly closes the loading check wrapper!
+  }
 
   if (!session) {
     return <AuthPage />;
   }
 
-  return <Library selectedResource={selectedResource} setSelectedResource={setSelectedResource} />;
-} // 🟢 This single bracket closes your App function completely!
-// 🟢 Replace lines 596-600 with this clean signature:
-function ResourceModal({ resource, onClose }: { resource: any; onClose: () => void }) {
-  if (!resource) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
-      {/* Click outside backdrop to close */}
-      <div className="absolute inset-0" onClick={onClose} />
-      
-      {/* Modal Box Container */}
-      <div className="relative bg-[#0d0d0d] border border-white/10 w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl z-10 flex flex-col md:flex-row animate-in fade-in zoom-in-95 duration-200">
-        
-        {/* Left Side: Large Cover Image */}
-        <div className="w-full md:w-1/2 aspect-[3/4] bg-zinc-900 relative">
-          <img 
-            src={resource.cover_url || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=500"} 
-            alt={resource.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
-
-        {/* Right Side: Text & Download Action */}
-        <div className="w-full md:w-1/2 p-6 flex flex-col justify-between bg-[#121212]">
-          <div>
-            {/* Close Button */}
-            <button 
-              onClick={onClose}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-white bg-white/5 p-2 rounded-full text-sm"
-            >
-              ✕
-            </button>
-
-            <span className="text-xs font-bold text-[#E50914] uppercase tracking-widest">
-              {resource.category}
-            </span>
-            <h2 className="text-white font-extrabold text-2xl mt-2 leading-tight">
-              {resource.title}
-            </h2>
-            <p className="text-zinc-400 text-sm mt-2 font-medium">
-              By {resource.author || "Academic Board"}
-            </p>
-          </div>
-
-          {/* Download Button Area (Only visible on card click modal!) */}
-          <div className="mt-8 space-y-3">
-            <a 
-              href={resource.file_url || "#"} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="w-full bg-[#E50914] hover:bg-[#b80710] text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 block text-center"
-            >
-              Download Resource
-            </a>
-            <button 
-              onClick={onClose}
-              className="w-full bg-white/5 hover:bg-white/10 text-zinc-300 font-semibold py-2.5 px-4 rounded-xl transition-all text-xs"
-            >
-              Back to Library
-            </button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  );
+  return <Library />;
 }
