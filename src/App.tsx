@@ -577,7 +577,12 @@ export default function App() {
           </div>
           <p className="text-xs text-white/30 tracking-widest uppercase">Loading vault...</p>
         </div>
-  
+// This cleanly wraps up the loading check block from earlier
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        {/* Your loading elements... */}
+      </div>
     );
   }
 
@@ -585,23 +590,11 @@ export default function App() {
     return <AuthPage />;
   }
 
-return <Library onSelectResource={setSelectedResource} selectedResource={selectedResource} setSelectedResource={setSelectedResource} />;
-}
-// ... Line 578:
   return <Library selectedResource={selectedResource} setSelectedResource={setSelectedResource} />;
-} // <--- THIS bracket on line 579 closes your entire App() function.
+} // This single bracket ends your App function cleanly!
 
-// ==========================================
-// 🟢 PASTE THE ENTIRE CODE BLOCK BELOW HERE (OUTSIDE OF APP)
-// ==========================================
-
-function ResourceModal({ 
-  resource, 
-  onClose 
-}: { 
-  resource: any; 
-  onClose: () => void; 
-}) {
+// 🟢 Replace lines 596-600 with this clean signature:
+function ResourceModal({ resource, onClose }: { resource: any; onClose: () => void }) {
   if (!resource) return null;
 
   return (
