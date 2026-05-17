@@ -564,12 +564,10 @@ function Library({ selectedResource, setSelectedResource }: LibraryProps) {
 
 export default function App() {
   const { session, loading } = useAuth();
-  // Place your state line right here, cleanly nested inside the function:
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
 
   if (loading) {
     return (
-
       <div className="min-h-screen bg-[#050505] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-[#E50914] flex items-center justify-center animate-pulse">
@@ -577,15 +575,16 @@ export default function App() {
           </div>
           <p className="text-xs text-white/30 tracking-widest uppercase">Loading vault...</p>
         </div>
-
+      </div>
+    );
+  } // 🟢 This cleanly closes the loading check wrapper!
 
   if (!session) {
     return <AuthPage />;
   }
 
   return <Library selectedResource={selectedResource} setSelectedResource={setSelectedResource} />;
-} // This single bracket ends your App function cleanly!
-
+} // 🟢 This single bracket closes your App function completely!
 // 🟢 Replace lines 596-600 with this clean signature:
 function ResourceModal({ resource, onClose }: { resource: any; onClose: () => void }) {
   if (!resource) return null;
