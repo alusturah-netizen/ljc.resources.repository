@@ -579,9 +579,9 @@ export default function App() {
     );
   } // 🟢 This cleanly closes the loading check wrapper!
 
-  if (!session) {
-    return <AuthPage />;
-  }
+ // if (!session) {
+ //   return <AuthPage />;
+//  }
 
   return <Library selectedResource={selectedResource} setSelectedResource={setSelectedResource} />;
 } // 🟢 This single bracket closes your App function completely!
