@@ -11,6 +11,10 @@ function getRoleHint(email: string): 'student' | 'teacher' | null {
   return null;
 }
 
+function getRole(email: string): 'student' | 'teacher' {
+  return /^[a-zA-Z]+\d{4}@loyolajesuit\.org$/i.test(email) ? 'student' : 'teacher';
+}
+
 function validateSignUpEmail(email: string): { valid: boolean; error?: string } {
   if (!email.trim()) return { valid: false, error: 'Email is required' };
   if (!email.toLowerCase().endsWith('@loyolajesuit.org'))
@@ -53,10 +57,23 @@ export default function AuthPage() {
 
     try {
       if (mode === 'signup') {
-        const { error: signUpError } = await supabase.auth.signUp({ email, password });
+        // 1. Create the auth user
+        const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
         if (signUpError) throw signUpError;
-        // With email confirmation OFF, Supabase returns a session immediately.
-        // AuthContext will detect the session and redirect to Library automatically.
+
+        // 2. Manually create the profile (bypasses trigger entirely)
+        // With email confirmation OFF, signup returns a session immediately
+        if (data.user) {
+          const role = getRole(email);
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({ id: data.user.id, email, role });
+          if (profileError) {
+            console.warn('Profile creation failed:', profileError.message);
+          }
+        }
+        // AuthContext detects the session and redirects to Library automatically
+
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
@@ -64,13 +81,12 @@ export default function AuthPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
       console.error('Auth error:', err);
-      // Show friendlier error messages
       if (msg.toLowerCase().includes('invalid login credentials')) {
         setError('Incorrect email or password. Please try again.');
-      } else if (msg.toLowerCase().includes('database error')) {
-        setError('Account setup failed. Please try again in a moment.');
       } else if (msg.toLowerCase().includes('already registered')) {
         setError('This email is already registered. Try signing in instead.');
+      } else if (msg.toLowerCase().includes('database error')) {
+        setError('Account setup failed. Please try again in a moment.');
       } else {
         setError(msg);
       }
@@ -80,7 +96,6 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] flex items-center justify-center px-4">
-      {/* Background glow */}
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
@@ -203,7 +218,6 @@ export default function AuthPage() {
                 letterSpacing: '-0.02em',
                 boxShadow: (loading || isSubmitDisabled) ? 'none' : '0 8px 30px rgba(229,9,20,0.3)',
               }}
-              title={isSubmitDisabled ? signupValidation.error : undefined}
             >
               {loading
                 ? (mode === 'login' ? 'Signing in...' : 'Creating account...')
@@ -212,7 +226,6 @@ export default function AuthPage() {
           </form>
         </div>
 
-        {/* Domain notice */}
         <p className="text-center text-[11px] text-white/20 mt-6 leading-relaxed px-4">
           This library is restricted to{' '}
           <span className="text-white/40 font-semibold">@loyolajesuit.org</span>{' '}
