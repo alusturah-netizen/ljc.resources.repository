@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Search, Download, BookOpen, FlaskConical, Palette, Globe,
-  ChevronRight, File, Vault, LogOut, GraduationCap, User as UserIcon, Upload as UploadIcon,
+  Search, BookOpen, FlaskConical, Palette, Globe,
+  ChevronRight, File, Vault, LogOut, GraduationCap, User as UserIcon, Upload as UploadIcon, X,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { useAuth } from './context/AuthContext';
@@ -14,6 +14,8 @@ interface Resource {
   category: string;
   file_url: string;
   access_level: string;
+  cover_url: string | null;
+  author: string | null;
 }
 
 const CATEGORIES = ['Mathematics', 'Science', 'Art', 'Social Sciences'] as const;
@@ -72,36 +74,114 @@ function SkeletonGrid() {
   );
 }
 
-function ResourceCard({ resource }: { resource: Resource }) {
+// ─── Resource Modal ───────────────────────────────────────────────────────────
+function ResourceModal({ resource, onClose }: { resource: Resource; onClose: () => void }) {
   const config = CATEGORY_CONFIG[resource.category as Category];
   const accent = config?.accent ?? '#E50914';
 
   return (
-    <div className="group flex-shrink-0 w-56 rounded-2xl border border-white/5 bg-[#0d0d0d] p-4 transition-all duration-300 hover:scale-[1.02] hover:border-white/20 hover:shadow-2xl cursor-pointer">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110"
-        style={{ background: `${accent}22`, color: accent }}
+        className="relative bg-[#111] border border-white/10 rounded-2xl w-[360px] max-w-[92vw] shadow-2xl overflow-hidden"
+        onClick={e => e.stopPropagation()}
       >
-        <File size={20} />
-      </div>
-      <h3 className="text-sm font-bold text-white leading-snug mb-2 line-clamp-3" style={{ letterSpacing: '-0.02em' }}>
-        {resource.title}
-      </h3>
-      <p className="text-[11px] text-white/40 mb-4">{resource.category}</p>
-      <div className="flex gap-2">
+        {/* Cover image */}
+        {resource.cover_url ? (
+          <img
+            src={resource.cover_url}
+            alt={resource.title}
+            className="w-full h-52 object-cover"
+          />
+        ) : (
+          <div
+            className="w-full h-52 flex flex-col items-center justify-center"
+            style={{ background: `${accent}18` }}
+          >
+            <File size={40} style={{ color: accent, opacity: 0.5 }} />
+            <p className="text-xs mt-2" style={{ color: accent, opacity: 0.4 }}>No Cover Image</p>
+          </div>
+        )}
+
+        {/* Close button */}
         <button
-          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-all duration-200 active:scale-95 hover:brightness-110"
-          style={{ background: '#E50914', color: '#fff' }}
-          onClick={() => resource.file_url && window.open(resource.file_url, '_blank')}
+          onClick={onClose}
+          className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white/70 hover:text-white transition-colors"
         >
-          <Download size={12} />
-          Download
+          <X size={14} />
         </button>
+
+        {/* Content */}
+        <div className="p-5">
+          {/* Category badge */}
+          <span
+            className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-3 inline-block"
+            style={{ background: `${accent}22`, color: accent }}
+          >
+            {resource.category}
+          </span>
+
+          <h2 className="text-white font-black text-lg leading-tight mb-1" style={{ letterSpacing: '-0.03em' }}>
+            {resource.title}
+          </h2>
+
+          {resource.author && (
+            <p className="text-white/40 text-sm mb-4">by {resource.author}</p>
+          )}
+
+          <button
+            onClick={() => resource.file_url && window.open(resource.file_url, '_blank')}
+            disabled={!resource.file_url}
+            className="w-full py-2.5 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: '#E50914', boxShadow: '0 4px 20px rgba(229,9,20,0.3)' }}
+          >
+            ↓ Download Resource
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
+// ─── Resource Card ────────────────────────────────────────────────────────────
+function ResourceCard({ resource }: { resource: Resource }) {
+  const config = CATEGORY_CONFIG[resource.category as Category];
+  const accent = config?.accent ?? '#E50914';
+  const [showModal, setShowModal] = useState(false);
+
+  return (
+    <>
+      {showModal && (
+        <ResourceModal resource={resource} onClose={() => setShowModal(false)} />
+      )}
+      <div
+        className="group flex-shrink-0 w-56 rounded-2xl border border-white/5 bg-[#0d0d0d] p-4 transition-all duration-300 hover:scale-[1.02] hover:border-white/20 hover:shadow-2xl cursor-pointer"
+        onClick={() => setShowModal(true)}
+      >
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110"
+          style={{ background: `${accent}22`, color: accent }}
+        >
+          <File size={20} />
+        </div>
+        <h3
+          className="text-sm font-bold text-white leading-snug mb-2 line-clamp-3"
+          style={{ letterSpacing: '-0.02em' }}
+        >
+          {resource.title}
+        </h3>
+        <p className="text-[11px] text-white/40 mb-3">{resource.category}</p>
+        {resource.author && (
+          <p className="text-[10px] text-white/25 truncate">by {resource.author}</p>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── Vault Empty ──────────────────────────────────────────────────────────────
 function VaultEmpty() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -114,6 +194,7 @@ function VaultEmpty() {
   );
 }
 
+// ─── Category Row ─────────────────────────────────────────────────────────────
 interface CategoryRowProps {
   category: Category;
   resources: Resource[];
@@ -173,6 +254,7 @@ function CategoryRow({ category, resources, loading, onCategoryClick, activeCate
   );
 }
 
+// ─── Bento Grid ───────────────────────────────────────────────────────────────
 interface BentoGridProps {
   counts: Record<string, number>;
   loading: boolean;
@@ -235,6 +317,7 @@ function BentoGrid({ counts, loading, onSelect, active }: BentoGridProps) {
   );
 }
 
+// ─── Library ──────────────────────────────────────────────────────────────────
 function Library() {
   const { profile, signOut } = useAuth();
   const isTeacher = profile?.role === 'teacher';
@@ -252,26 +335,20 @@ function Library() {
     setLoading(true);
     const { data } = await supabase
       .from('resources')
-      .select('id, title, category, file_url, access_level')
+      .select('id, title, category, file_url, access_level, cover_url, author')
       .order('id', { ascending: false });
     setAllResources(data ?? []);
     setLoading(false);
   }
 
-  useEffect(() => {
-    fetchAll();
-  }, [isTeacher]);
+  useEffect(() => { fetchAll(); }, [isTeacher]);
 
   const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) {
-      setSearchResults([]);
-      setSearching(false);
-      return;
-    }
+    if (!q.trim()) { setSearchResults([]); setSearching(false); return; }
     setSearching(true);
     const { data } = await supabase
       .from('resources')
-      .select('id, title, category, file_url, access_level')
+      .select('id, title, category, file_url, access_level, cover_url, author')
       .or(`title.ilike.%${q}%,category.eq.${q}`)
       .order('id', { ascending: false });
     setSearchResults(data ?? []);
@@ -304,7 +381,7 @@ function Library() {
   return (
     <div className="min-h-screen bg-[#050505] text-white">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-[#E50914] flex items-center justify-center">
@@ -415,9 +492,9 @@ function Library() {
               {query && (
                 <button
                   onMouseDown={e => { e.preventDefault(); setQuery(''); }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 text-xs transition-colors w-5 h-5 flex items-center justify-center"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors w-5 h-5 flex items-center justify-center"
                 >
-                  x
+                  <X size={14} />
                 </button>
               )}
             </div>
@@ -464,12 +541,7 @@ function Library() {
                   </button>
                 )}
               </div>
-              <BentoGrid
-                counts={counts}
-                loading={loading}
-                onSelect={handleCategorySelect}
-                active={activeCategory}
-              />
+              <BentoGrid counts={counts} loading={loading} onSelect={handleCategorySelect} active={activeCategory} />
             </section>
 
             <div className="space-y-6">
@@ -523,6 +595,7 @@ function Library() {
   );
 }
 
+// ─── App Root ─────────────────────────────────────────────────────────────────
 export default function App() {
   const { session, loading } = useAuth();
 
@@ -539,9 +612,6 @@ export default function App() {
     );
   }
 
-  if (!session) {
-    return <AuthPage />;
-  }
-
+  if (!session) return <AuthPage />;
   return <Library />;
 }
