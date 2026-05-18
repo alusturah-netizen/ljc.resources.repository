@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { Vault, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Vault, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 type AuthMode = 'login' | 'signup';
@@ -11,25 +11,19 @@ function getRoleHint(email: string): 'student' | 'teacher' | null {
   return null;
 }
 
+function getRole(email: string): 'student' | 'teacher' {
+  return /^[a-zA-Z]+\d{4}@loyolajesuit\.org$/i.test(email) ? 'student' : 'teacher';
+}
+
 function validateSignUpEmail(email: string): { valid: boolean; error?: string } {
-  if (!email.trim()) {
-    return { valid: false, error: 'Email is required' };
-  }
-
-  if (!email.toLowerCase().endsWith('@loyolajesuit.org')) {
+  if (!email.trim()) return { valid: false, error: 'Email is required' };
+  if (!email.toLowerCase().endsWith('@loyolajesuit.org'))
     return { valid: false, error: 'Please use your official school email.' };
-  }
-
   const localPart = email.split('@')[0];
-
-  // Must be either letters only (teacher) or letters + 4 digits (student)
   const isValidTeacher = /^[a-zA-Z]+$/.test(localPart);
   const isValidStudent = /^[a-zA-Z]+\d{4}$/.test(localPart);
-
-  if (!isValidTeacher && !isValidStudent) {
+  if (!isValidTeacher && !isValidStudent)
     return { valid: false, error: 'Email format invalid. Use letters or letters+4 digits before @loyolajesuit.org' };
-  }
-
   return { valid: true };
 }
 
@@ -42,8 +36,6 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [isWaitingForVerification, setIsWaitingForVerification] = useState(false);
 
   const roleHint = getRoleHint(email);
   const signupValidation = mode === 'signup' ? validateSignUpEmail(email) : { valid: true };
@@ -52,7 +44,6 @@ export default function AuthPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
 
     if (mode === 'signup') {
       const validation = validateSignUpEmail(email);
@@ -66,10 +57,23 @@ export default function AuthPage() {
 
     try {
       if (mode === 'signup') {
-        const { error: signUpError } = await supabase.auth.signUp({ email, password });
+        // 1. Create the auth user
+        const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
         if (signUpError) throw signUpError;
-        setIsWaitingForVerification(true);
-        setLoading(false);
+
+        // 2. Manually create the profile (bypasses trigger entirely)
+        // With email confirmation OFF, signup returns a session immediately
+        if (data.user) {
+          const role = getRole(email);
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({ id: data.user.id, email, role });
+          if (profileError) {
+            console.warn('Profile creation failed:', profileError.message);
+          }
+        }
+        // AuthContext detects the session and redirects to Library automatically
+
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
@@ -77,21 +81,21 @@ export default function AuthPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
       console.error('Auth error:', err);
-      setError(msg);
+      if (msg.toLowerCase().includes('invalid login credentials')) {
+        setError('Incorrect email or password. Please try again.');
+      } else if (msg.toLowerCase().includes('already registered')) {
+        setError('This email is already registered. Try signing in instead.');
+      } else if (msg.toLowerCase().includes('database error')) {
+        setError('Account setup failed. Please try again in a moment.');
+      } else {
+        setError(msg);
+      }
       setLoading(false);
     }
   }
 
-  function handleBackToLogin() {
-    setIsWaitingForVerification(false);
-    setEmail('');
-    setPassword('');
-    setError(null);
-  }
-
   return (
     <div className="min-h-screen bg-[#050505] flex items-center justify-center px-4">
-      {/* Background glow */}
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
@@ -102,7 +106,10 @@ export default function AuthPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="flex flex-col items-center mb-10">
-          <div className="w-14 h-14 rounded-2xl bg-[#E50914] flex items-center justify-center mb-4 shadow-2xl" style={{ boxShadow: '0 0 40px rgba(229,9,20,0.4)' }}>
+          <div
+            className="w-14 h-14 rounded-2xl bg-[#E50914] flex items-center justify-center mb-4 shadow-2xl"
+            style={{ boxShadow: '0 0 40px rgba(229,9,20,0.4)' }}
+          >
             <Vault size={26} className="text-white" />
           </div>
           <h1 className="text-2xl font-black text-white" style={{ letterSpacing: '-0.05em' }}>
@@ -116,49 +123,23 @@ export default function AuthPage() {
           className="rounded-3xl border border-white/8 p-8"
           style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(24px)' }}
         >
-          {isWaitingForVerification ? (
-            // Verification screen
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="w-16 h-16 rounded-2xl bg-[#E50914]/20 flex items-center justify-center mb-6 animate-pulse">
-                <Mail size={32} className="text-[#E50914]" />
-              </div>
-              <h2 className="text-2xl font-black text-white mb-2" style={{ letterSpacing: '-0.04em' }}>
-                Confirm your identity
-              </h2>
-              <p className="text-sm text-white/40 text-center mb-8 leading-relaxed">
-                We sent a verification link to<br />
-                <span className="text-white/60 font-semibold">{email}</span>
-              </p>
-              <p className="text-xs text-white/30 text-center mb-8 leading-relaxed">
-                Please click the link in your email to activate your account.
-              </p>
+          {/* Mode tabs */}
+          <div className="flex rounded-2xl bg-white/5 p-1 mb-8 gap-1">
+            {(['login', 'signup'] as AuthMode[]).map(m => (
               <button
-                onClick={handleBackToLogin}
-                className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg border border-white/10 text-white/40 hover:text-white hover:border-white/30 transition-all duration-200"
+                key={m}
+                onClick={() => { setMode(m); setError(null); }}
+                className="flex-1 py-2.5 text-xs font-black rounded-xl transition-all duration-200"
+                style={{
+                  letterSpacing: '-0.02em',
+                  background: mode === m ? '#E50914' : 'transparent',
+                  color: mode === m ? '#fff' : 'rgba(255,255,255,0.3)',
+                }}
               >
-                <ArrowLeft size={14} />
-                Back to Login
+                {m === 'login' ? 'Sign In' : 'Sign Up'}
               </button>
-            </div>
-          ) : (
-            <>
-              {/* Mode tabs */}
-              <div className="flex rounded-2xl bg-white/5 p-1 mb-8 gap-1">
-                {(['login', 'signup'] as AuthMode[]).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => { setMode(m); setError(null); setSuccess(null); }}
-                    className="flex-1 py-2.5 text-xs font-black rounded-xl transition-all duration-200"
-                    style={{
-                      letterSpacing: '-0.02em',
-                      background: mode === m ? '#E50914' : 'transparent',
-                      color: mode === m ? '#fff' : 'rgba(255,255,255,0.3)',
-                    }}
-                  >
-                    {m === 'login' ? 'Sign In' : 'Sign Up'}
-                  </button>
-                ))}
-              </div>
+            ))}
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
@@ -187,10 +168,7 @@ export default function AuthPage() {
                   className="flex items-center gap-2 text-[11px] font-bold px-3 py-1.5 rounded-lg mt-1"
                   style={{ background: `${ROLE_COLORS[roleHint]}15`, color: ROLE_COLORS[roleHint] }}
                 >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full inline-block"
-                    style={{ background: ROLE_COLORS[roleHint] }}
-                  />
+                  <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: ROLE_COLORS[roleHint] }} />
                   Detected role: <span className="capitalize">{roleHint}</span>
                 </div>
               )}
@@ -229,14 +207,6 @@ export default function AuthPage() {
               </div>
             )}
 
-            {/* Success */}
-            {success && (
-              <div className="flex items-start gap-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1 flex-shrink-0 inline-block" />
-                <p className="text-xs text-emerald-400 leading-relaxed">{success}</p>
-              </div>
-            )}
-
             {/* Submit */}
             <button
               type="submit"
@@ -248,19 +218,14 @@ export default function AuthPage() {
                 letterSpacing: '-0.02em',
                 boxShadow: (loading || isSubmitDisabled) ? 'none' : '0 8px 30px rgba(229,9,20,0.3)',
               }}
-              title={isSubmitDisabled ? signupValidation.error : undefined}
             >
               {loading
                 ? (mode === 'login' ? 'Signing in...' : 'Creating account...')
-                : (mode === 'login' ? 'Sign In to Vault' : 'Create Account')
-              }
+                : (mode === 'login' ? 'Sign In to Vault' : 'Create Account')}
             </button>
           </form>
-            </>
-          )}
         </div>
 
-        {/* Domain notice */}
         <p className="text-center text-[11px] text-white/20 mt-6 leading-relaxed px-4">
           This library is restricted to{' '}
           <span className="text-white/40 font-semibold">@loyolajesuit.org</span>{' '}
