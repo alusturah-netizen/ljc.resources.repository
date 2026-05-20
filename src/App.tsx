@@ -16,10 +16,14 @@ interface Resource {
   access_level: string;
   cover_url: string | null;
   author: string | null;
+  classes: string[] | null;
 }
 
 const CATEGORIES = ['Mathematics', 'Science', 'Art', 'Social Sciences'] as const;
 type Category = typeof CATEGORIES[number];
+
+const CLASSES = ['JSS1', 'JSS2', 'JSS3', 'SS1', 'SS2', 'SS3'] as const;
+type Class = typeof CLASSES[number];
 
 const CATEGORY_CONFIG: Record<Category, {
   icon: React.ElementType;
@@ -59,8 +63,6 @@ function SkeletonCard() {
       <div className="w-10 h-10 rounded-xl bg-white/10 mb-3" />
       <div className="h-3 bg-white/10 rounded mb-2 w-3/4" />
       <div className="h-3 bg-white/10 rounded mb-4 w-1/2" />
-      <div className="h-2 bg-white/10 rounded mb-1 w-full" />
-      <div className="h-2 bg-white/10 rounded w-2/3" />
       <div className="mt-4 h-8 bg-white/10 rounded-lg" />
     </div>
   );
@@ -88,49 +90,40 @@ function ResourceModal({ resource, onClose }: { resource: Resource; onClose: () 
         className="relative bg-[#111] border border-white/10 rounded-2xl w-[360px] max-w-[92vw] shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        {/* Cover image */}
         {resource.cover_url ? (
-          <img
-            src={resource.cover_url}
-            alt={resource.title}
-            className="w-full h-52 object-cover"
-          />
+          <img src={resource.cover_url} alt={resource.title} className="w-full h-52 object-cover" />
         ) : (
-          <div
-            className="w-full h-52 flex flex-col items-center justify-center"
-            style={{ background: `${accent}18` }}
-          >
+          <div className="w-full h-52 flex flex-col items-center justify-center" style={{ background: `${accent}18` }}>
             <File size={40} style={{ color: accent, opacity: 0.5 }} />
             <p className="text-xs mt-2" style={{ color: accent, opacity: 0.4 }}>No Cover Image</p>
           </div>
         )}
-
-        {/* Close button */}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white/70 hover:text-white transition-colors"
         >
           <X size={14} />
         </button>
-
-        {/* Content */}
         <div className="p-5">
-          {/* Category badge */}
-          <span
-            className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-3 inline-block"
-            style={{ background: `${accent}22`, color: accent }}
-          >
-            {resource.category}
-          </span>
-
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ background: `${accent}22`, color: accent }}
+            >
+              {resource.category}
+            </span>
+            {resource.classes && resource.classes.length > 0 && resource.classes.map(cls => (
+              <span key={cls} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-white/50">
+                {cls}
+              </span>
+            ))}
+          </div>
           <h2 className="text-white font-black text-lg leading-tight mb-1" style={{ letterSpacing: '-0.03em' }}>
             {resource.title}
           </h2>
-
           {resource.author && (
             <p className="text-white/40 text-sm mb-4">by {resource.author}</p>
           )}
-
           <button
             onClick={() => resource.file_url && window.open(resource.file_url, '_blank')}
             disabled={!resource.file_url}
@@ -153,9 +146,7 @@ function ResourceCard({ resource }: { resource: Resource }) {
 
   return (
     <>
-      {showModal && (
-        <ResourceModal resource={resource} onClose={() => setShowModal(false)} />
-      )}
+      {showModal && <ResourceModal resource={resource} onClose={() => setShowModal(false)} />}
       <div
         className="group flex-shrink-0 w-56 rounded-2xl border border-white/5 bg-[#0d0d0d] p-4 transition-all duration-300 hover:scale-[1.02] hover:border-white/20 hover:shadow-2xl cursor-pointer"
         onClick={() => setShowModal(true)}
@@ -166,16 +157,19 @@ function ResourceCard({ resource }: { resource: Resource }) {
         >
           <File size={20} />
         </div>
-        <h3
-          className="text-sm font-bold text-white leading-snug mb-2 line-clamp-3"
-          style={{ letterSpacing: '-0.02em' }}
-        >
+        <h3 className="text-sm font-bold text-white leading-snug mb-2 line-clamp-2" style={{ letterSpacing: '-0.02em' }}>
           {resource.title}
         </h3>
-        <p className="text-[11px] text-white/40 mb-3">{resource.category}</p>
-        {resource.author && (
-          <p className="text-[10px] text-white/25 truncate">by {resource.author}</p>
+        {resource.classes && resource.classes.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {resource.classes.map(cls => (
+              <span key={cls} className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/8 text-white/35">
+                {cls}
+              </span>
+            ))}
+          </div>
         )}
+        <p className="text-[11px] text-white/40">{resource.category}</p>
       </div>
     </>
   );
@@ -240,12 +234,7 @@ function CategoryRow({ category, resources, loading, onCategoryClick, activeCate
           />
         </div>
       </button>
-
-      {loading ? (
-        <SkeletonGrid />
-      ) : resources.length === 0 ? (
-        <VaultEmpty />
-      ) : (
+      {loading ? <SkeletonGrid /> : resources.length === 0 ? <VaultEmpty /> : (
         <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
           {resources.map(r => <ResourceCard key={r.id} resource={r} />)}
         </div>
@@ -255,33 +244,24 @@ function CategoryRow({ category, resources, loading, onCategoryClick, activeCate
 }
 
 // ─── Bento Grid ───────────────────────────────────────────────────────────────
-interface BentoGridProps {
+function BentoGrid({ counts, loading, onSelect, active }: {
   counts: Record<string, number>;
   loading: boolean;
   onSelect: (cat: Category) => void;
   active: Category | null;
-}
-
-function BentoGrid({ counts, loading, onSelect, active }: BentoGridProps) {
+}) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {CATEGORIES.map(cat => {
         const config = CATEGORY_CONFIG[cat];
         const Icon = config.icon;
         const isActive = active === cat;
-
         return (
           <button
             key={cat}
             onClick={() => onSelect(cat)}
-            className={`group relative overflow-hidden rounded-3xl border p-5 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl ${
-              isActive ? 'border-white/20 shadow-2xl scale-[1.02]' : 'border-white/5'
-            }`}
-            style={{
-              background: isActive
-                ? `linear-gradient(135deg, ${config.accent}25, ${config.accent}08)`
-                : 'rgba(255,255,255,0.03)',
-            }}
+            className={`group relative overflow-hidden rounded-3xl border p-5 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl ${isActive ? 'border-white/20 shadow-2xl scale-[1.02]' : 'border-white/5'}`}
+            style={{ background: isActive ? `linear-gradient(135deg, ${config.accent}25, ${config.accent}08)` : 'rgba(255,255,255,0.03)' }}
           >
             <div className={`absolute inset-0 bg-gradient-to-br ${config.gradient} opacity-60`} />
             <div className="relative z-10">
@@ -296,25 +276,49 @@ function BentoGrid({ counts, loading, onSelect, active }: BentoGridProps) {
               {loading ? (
                 <div className="h-5 w-20 rounded-full bg-white/10 animate-pulse" />
               ) : (
-                <span
-                  className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-                  style={{ background: `${config.accent}22`, color: config.accent }}
-                >
+                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: `${config.accent}22`, color: config.accent }}>
                   {counts[cat] ?? 0}
                 </span>
               )}
             </div>
-            {isActive && (
-              <div
-                className="absolute top-3 right-3 w-2 h-2 rounded-full"
-                style={{ background: config.accent }}
-              />
-            )}
+            {isActive && <div className="absolute top-3 right-3 w-2 h-2 rounded-full" style={{ background: config.accent }} />}
           </button>
         );
       })}
     </div>
   );
+}
+
+// ─── fuzzy client-side match ──────────────────────────────────────────────────
+function fuzzyMatch(resource: Resource, query: string): boolean {
+  const q = query.toLowerCase().trim();
+  if (!q) return true;
+
+  const terms = q.split(/\s+/);
+
+  return terms.every(term => {
+    const inTitle = resource.title.toLowerCase().includes(term);
+    const inCategory = resource.category.toLowerCase().includes(term);
+    const inAuthor = (resource.author ?? '').toLowerCase().includes(term);
+    const inClasses = (resource.classes ?? []).some(c => c.toLowerCase().includes(term));
+
+    // Partial subject matches e.g. "bios" → "Biology"
+    const subjects: Record<string, string[]> = {
+      'bio': ['biology'], 'bios': ['biology'],
+      'phys': ['physics'], 'chem': ['chemistry'],
+      'math': ['mathematics'], 'maths': ['mathematics'],
+      'comp': ['computer science'], 'cs': ['computer science'],
+      'soc': ['social sciences'], 'geo': ['geography'],
+      'eng': ['english'], 'lit': ['literature'],
+    };
+    const expanded = subjects[term] ?? [];
+    const inExpanded = expanded.some(e =>
+      resource.title.toLowerCase().includes(e) ||
+      resource.category.toLowerCase().includes(e)
+    );
+
+    return inTitle || inCategory || inAuthor || inClasses || inExpanded;
+  });
 }
 
 // ─── Library ──────────────────────────────────────────────────────────────────
@@ -325,53 +329,47 @@ function Library() {
   const [query, setQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
+  const [activeClass, setActiveClass] = useState<Class | null>(null);
   const [allResources, setAllResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchResults, setSearchResults] = useState<Resource[]>([]);
-  const [searching, setSearching] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
   async function fetchAll() {
     setLoading(true);
     const { data } = await supabase
-    .from('resources')
-        .select('id, title, category, file_url, access_level, cover_url, author')
-        .order('id', { ascending: false });
-
-      // 🟢 These will print perfectly to your browser console now!
-      console.log("DATABASE RESPONSE DATA:", data);
-      
-
-      setAllResources(data ?? []);
-      setLoading(false);
-    }
+      .from('resources')
+      .select('id, title, category, file_url, access_level, cover_url, author, classes')
+      .order('id', { ascending: false });
+    setAllResources(data ?? []);
+    setLoading(false);
+  }
 
   useEffect(() => { fetchAll(); }, [isTeacher]);
 
-  const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) { setSearchResults([]); setSearching(false); return; }
-    setSearching(true);
-    const { data } = await supabase
-      .from('resources')
-      .select('id, title, category, file_url, access_level, cover_url, author')
-      .or(`title.ilike.%${q}%,category.eq.${q}`)
-      .order('id', { ascending: false });
-    setSearchResults(data ?? []);
-    setSearching(false);
-  }, [isTeacher]);
+  // Filter resources based on search, class, and category
+  const filteredResources = useCallback(() => {
+    let resources = allResources;
 
-  useEffect(() => {
-    const t = setTimeout(() => doSearch(query), 280);
-    return () => clearTimeout(t);
-  }, [query, doSearch]);
+    if (activeClass) {
+      resources = resources.filter(r => (r.classes ?? []).includes(activeClass));
+    }
+
+    if (query.trim()) {
+      resources = resources.filter(r => fuzzyMatch(r, query));
+    }
+
+    return resources;
+  }, [allResources, query, activeClass]);
+
+  const visibleResources = filteredResources();
+  const isSearching = query.trim().length > 0 || activeClass !== null;
 
   const counts = CATEGORIES.reduce<Record<string, number>>((acc, cat) => {
-    acc[cat] = allResources.filter(r => r.category === cat).length;
+    acc[cat] = visibleResources.filter(r => r.category === cat).length;
     return acc;
   }, {});
 
-  const byCategory = (cat: Category) => allResources.filter(r => r.category === cat);
-  const isSearching = query.trim().length > 0;
+  const byCategory = (cat: Category) => visibleResources.filter(r => r.category === cat);
 
   const handleCategorySelect = (cat: Category) => {
     setActiveCategory(prev => prev === cat ? null : cat);
@@ -445,7 +443,7 @@ function Library() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-14">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
 
         {/* Hero */}
         <section className="text-center pt-6">
@@ -453,21 +451,18 @@ function Library() {
             <span className="w-1.5 h-1.5 rounded-full bg-[#E50914] animate-pulse inline-block" />
             Academic Resource Vault
           </div>
-          <h1
-            className="text-4xl sm:text-5xl lg:text-6xl font-black text-white mb-4 leading-none"
-            style={{ letterSpacing: '-0.05em' }}
-          >
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white mb-4 leading-none" style={{ letterSpacing: '-0.05em' }}>
             Your Academic<br />
             <span className="text-[#E50914]">Library.</span> Reimagined.
           </h1>
-          <p className="text-sm text-white/40 max-w-md mx-auto mb-10 leading-relaxed">
+          <p className="text-sm text-white/40 max-w-md mx-auto mb-8 leading-relaxed">
             {isTeacher
               ? 'Full access to all curated resources across every subject and access level.'
               : 'Curated resources across Mathematics, Science, Art, and Social Sciences.'}
           </p>
 
           {/* Search */}
-          <div className="relative max-w-2xl mx-auto">
+          <div className="relative max-w-2xl mx-auto mb-6">
             <div
               className="relative rounded-2xl border transition-all duration-300"
               style={{
@@ -479,18 +474,14 @@ function Library() {
                   : '0 4px 24px rgba(0,0,0,0.4)',
               }}
             >
-              <Search
-                size={18}
-                className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200"
-                style={{ color: searchFocused ? '#E50914' : 'rgba(255,255,255,0.3)' }}
-              />
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200" style={{ color: searchFocused ? '#E50914' : 'rgba(255,255,255,0.3)' }} />
               <input
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
-                placeholder="Search by title or category..."
+                placeholder="Search by title, subject, class, author..."
                 className="w-full bg-transparent text-white text-sm font-medium placeholder-white/25 pl-12 pr-10 py-4 rounded-2xl outline-none"
                 style={{ letterSpacing: '-0.01em' }}
               />
@@ -504,44 +495,67 @@ function Library() {
               )}
             </div>
           </div>
+
+          {/* Class filter pills */}
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <span className="text-[11px] text-white/30 font-semibold">Filter by class:</span>
+            {CLASSES.map(cls => (
+              <button
+                key={cls}
+                onClick={() => setActiveClass(prev => prev === cls ? null : cls)}
+                className="text-[11px] font-bold px-3 py-1 rounded-full border transition-all duration-200"
+                style={{
+                  background: activeClass === cls ? '#E50914' : 'rgba(255,255,255,0.05)',
+                  borderColor: activeClass === cls ? '#E50914' : 'rgba(255,255,255,0.1)',
+                  color: activeClass === cls ? '#fff' : 'rgba(255,255,255,0.4)',
+                }}
+              >
+                {cls}
+              </button>
+            ))}
+            {activeClass && (
+              <button
+                onClick={() => setActiveClass(null)}
+                className="text-[11px] text-white/30 hover:text-white/60 transition-colors px-2"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </section>
 
-        {/* Search Results */}
+        {/* Search / filter results */}
         {isSearching && (
           <section>
             <div className="flex items-center gap-3 mb-4">
               <h2 className="text-base font-black text-white" style={{ letterSpacing: '-0.04em' }}>
-                {searching ? 'Searching vault...' : `${searchResults.length} result${searchResults.length !== 1 ? 's' : ''} for`}
+                {visibleResources.length} result{visibleResources.length !== 1 ? 's' : ''}
+                {query && <span className="text-[#E50914]"> for "{query}"</span>}
+                {activeClass && <span className="text-white/40"> in {activeClass}</span>}
               </h2>
-              {!searching && (
-                <span className="text-base font-black text-[#E50914]" style={{ letterSpacing: '-0.04em' }}>
-                  "{query}"
-                </span>
-              )}
+              <button
+                onClick={() => { setQuery(''); setActiveClass(null); }}
+                className="ml-auto text-xs text-white/30 hover:text-white/60 transition-colors"
+              >
+                Clear all
+              </button>
             </div>
-            {searching ? (
-              <SkeletonGrid />
-            ) : searchResults.length === 0 ? (
-              <VaultEmpty />
-            ) : (
+            {visibleResources.length === 0 ? <VaultEmpty /> : (
               <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                {searchResults.map(r => <ResourceCard key={r.id} resource={r} />)}
+                {visibleResources.map(r => <ResourceCard key={r.id} resource={r} />)}
               </div>
             )}
           </section>
         )}
 
-        {/* Bento + Rows */}
+        {/* Bento + Category Rows */}
         {!isSearching && (
           <>
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-black text-white" style={{ letterSpacing: '-0.04em' }}>Browse by Subject</h2>
                 {activeCategory && (
-                  <button
-                    onClick={() => setActiveCategory(null)}
-                    className="text-xs text-white/30 hover:text-white/60 transition-colors"
-                  >
+                  <button onClick={() => setActiveCategory(null)} className="text-xs text-white/30 hover:text-white/60 transition-colors">
                     Clear filter
                   </button>
                 )}
@@ -571,13 +585,8 @@ function Library() {
         )}
       </main>
 
-      <UploadModal
-        isOpen={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        onSuccess={fetchAll}
-      />
+      <UploadModal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} onSuccess={fetchAll} />
 
-      {/* Footer */}
       <footer className="border-t border-white/5 mt-20 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -600,7 +609,6 @@ function Library() {
   );
 }
 
-// ─── App Root ─────────────────────────────────────────────────────────────────
 export default function App() {
   const { session, loading } = useAuth();
 
