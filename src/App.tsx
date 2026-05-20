@@ -334,12 +334,20 @@ function Library() {
   async function fetchAll() {
     setLoading(true);
     const { data } = await supabase
-      .from('resources')
-      .select('id, title, category, file_url, access_level, cover_url, author')
-      .order('id', { ascending: false });
-    setAllResources(data ?? []);
-    setLoading(false);
-  }
+     .from('resources')
+        .select('id, title, category, file_url, access_level, cover_url, author')
+        .order('id', { ascending: false });
+
+      // 🟢 This prints the data cleanly to the developer console
+      console.log("DATABASE RESPONSE DATA:", data);
+      console.log("DATABASE FETCH ERROR:", error);
+
+      setAllResources(data ?? []);
+      setLoading(false);
+    } catch (err) {
+      console.error("System catch error:", err);
+      setLoading(false);
+    }
 
   useEffect(() => { fetchAll(); }, [isTeacher]);
 
