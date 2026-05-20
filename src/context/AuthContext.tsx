@@ -25,18 +25,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   async function fetchProfile(uid: string) {
-    try {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, email, role')
-        .eq('id', uid)
-        .maybeSingle();
-      setProfile(data as Profile | null);
-    } catch (err) {
-      console.error('Error fetching profile:', err);
-      setProfile(null);
+  try {
+    // Try to get existing profile
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, role')
+      .eq('id', uid)
+      .maybeSingle();
+
+    if (data) {
+      setProfile(data as Profile);
+      return;
     }
+
+    // Profile doesn't exist — create it
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const role = /^[a-zA-Z]+\d{4}@loyolajesuit\.org$/i.test(user.email ?? '')
+        ? 'student' : 'teacher';
+      const { data: newProfile } = await supabase
+        .from('profiles')
+        .insert({ id: uid, email: user.email, role })
+        .select()
+        .single();
+      setProfile(newProfile as Profile ?? null);
+    }
+  } catch (err) {
+    console.error('Error fetching profile:', err);
+    setProfile(null);
   }
+}
 
   useEffect(() => {
     let isMounted = true;
