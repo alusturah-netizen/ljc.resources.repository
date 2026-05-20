@@ -1,326 +1,223 @@
-import { useState, useRef, useEffect } from 'react';
-import { X, Send, BookOpen, Sparkles } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Send, Paperclip, X, Sparkles, Bot, User } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  imageUrl?: string;
-  timestamp: Date;
-}
-
-const IMAGE_KEYWORDS = [
-  'draw', 'generate', 'create an image', 'create a diagram',
-  'make an image', 'show me a picture', 'illustrate', 'diagram of',
-  'visualize', 'sketch', 'picture of', 'image of',
-];
-
-function isImageRequest(text: string): boolean {
-  const lower = text.toLowerCase();
-  return IMAGE_KEYWORDS.some(kw => lower.includes(kw));
-}
-
-function extractImagePrompt(text: string): string {
-  const lower = text.toLowerCase();
-  for (const kw of IMAGE_KEYWORDS) {
-    const idx = lower.indexOf(kw);
-    if (idx !== -1) {
-      return text.slice(idx + kw.length).trim().replace(/^(a|an|the|me|of|for)\s+/i, '');
-    }
-  }
-  return text;
+  created_at?: string;
 }
 
 interface TutorModalProps {
+  isOpen: boolean;
   onClose: () => void;
 }
 
-export default function TutorModal({ onClose }: TutorModalProps) {
+export default function TutorModal({ isOpen, onClose }: TutorModalProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: '0',
+      id: 'welcome',
       role: 'assistant',
-      content: "Hi! I'm your ScholarVault AI Tutor 👋\n\nI can help you understand any subject, explain concepts, solve problems, and even generate diagrams and illustrations.\n\nTry asking me something like:\n• \"Explain photosynthesis\"\n• \"Draw a diagram of the water cycle\"\n• \"Help me with quadratic equations\"\n\nWhat would you like to learn today?",
-      timestamp: new Date(),
+      content: "Hey! I'm your AI Academic Collaborator. Drop any complex concepts, assignments, or textbook queries here—let's break them down clearly using crisp tables and direct summaries. What are we mastering today?"
     }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  async function generateImage(prompt: string): Promise<string> {
-    const fullPrompt = `${prompt}, educational illustration, clean detailed academic diagram, white background, professional textbook style`;
-    const encoded = encodeURIComponent(fullPrompt);
-    return `https://image.pollinations.ai/prompt/${encoded}?width=600&height=400&nologo=true&seed=${Date.now()}`;
-  }
+  if (!isOpen) return null;
 
-  async function sendMessage() {
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!input.trim() || loading) return;
 
-    const userText = input.trim();
+    const userMessageContent = input.trim();
+    setInput('');
+    
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       role: 'user',
-      content: userText,
-      timestamp: new Date(),
+      content: userMessageContent
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setInput('');
     setLoading(true);
 
-    // Reset textarea height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
-
     try {
-      const wantsImage = isImageRequest(userText);
-      const imagePrompt = wantsImage ? extractImagePrompt(userText) : null;
+      // 🟢 Injected system prompt forces responses to stay beautifully structured like mine
+      const dialogueHistory = [
+        {
+          role: "system",
+          content: "You are an insightful, authentic AI academic collaborator. Break down complex math, finance, economics, and science items cleanly using clear headers, bullet lists, bold emphasis syntax, and markdown tables. Avoid long dense prose. Balance empathy with candor and match the user's style with a touch of wit."
+        },
+        ...messages.map(m => ({ role: m.role, content: m.content })),
+        { role: "user", content: userMessageContent }
+      ];
 
-      // Build conversation history (skip the welcome message)
-      const history = messages
-        .filter(m => m.id !== '0')
-        .map(m => ({ role: m.role, content: m.content }));
+      // Replace this edge fetch call with your local project API route endpoint configuration if different
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: dialogueHistory }),
+      });
 
-      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-      let textResponse = '';
-
-      if (apiKey) {
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
-          },
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 1024,
-            system: `You are a helpful, encouraging academic tutor for Loyola Jesuit College (LJC) students in Nigeria. You help with all school subjects including Mathematics, Science (Physics, Chemistry, Biology, Computer Science), Art, Social Sciences (Economics, Government, Geography, History), and English.
-
-Be clear, concise and friendly. Use relatable examples for Nigerian/West African students when helpful. Break down complex topics step by step.
-
-If asked to generate an image or diagram, briefly describe what the image will show and provide a thorough text explanation alongside it.
-
-Format your responses cleanly. Use bullet points or numbered steps where helpful. Keep answers focused and educational.`,
-            messages: [
-              ...history,
-              { role: 'user', content: userText },
-            ],
-          }),
-        });
-
-        if (!response.ok) {
-          const err = await response.json();
-          throw new Error(err.error?.message ?? 'API error');
-        }
-
-        const data = await response.json();
-        textResponse = data.content?.[0]?.text ?? "I couldn't generate a response. Please try again.";
-      } else {
-        textResponse = `⚠️ **AI Tutor not configured yet.**\n\nTo activate the tutor:\n1. Go to your Bolt project settings\n2. Add an environment variable: \`VITE_ANTHROPIC_API_KEY\`\n3. Get your key from console.anthropic.com\n\nOnce configured, I'll be fully powered by Claude AI!`;
-      }
-
-      // Generate image if requested
-      let imageUrl: string | undefined;
-      if (wantsImage && imagePrompt) {
-        imageUrl = await generateImage(imagePrompt);
-      }
+      if (!response.ok) throw new Error('Network payload query dropped');
+      const data = await response.json();
 
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         role: 'assistant',
-        content: textResponse,
-        imageUrl,
-        timestamp: new Date(),
+        content: data.choices?.[0]?.message?.content || data.reply || "I encountered a minor processing hitch. Let's try re-submitting that prompt."
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (err) {
-      console.error('Tutor error:', err);
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: "Sorry, I ran into an error. Please check your API key and try again!",
-        timestamp: new Date(),
-      }]);
+    } catch (error) {
+      console.error("Tutor connection crash error:", error);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: "Sorry, I lost my connection pipeline for a second there. Could you repeat that last thought?"
+        }
+      ]);
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  }
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-6">
-      <div className="relative w-full max-w-3xl h-[92vh] bg-[#080808] border border-white/10 rounded-3xl flex flex-col overflow-hidden shadow-2xl">
-
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-5 py-4 border-b border-white/5"
-          style={{ background: 'rgba(229,9,20,0.06)' }}
-        >
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl h-[80vh] flex flex-col overflow-hidden shadow-2xl">
+        
+        {/* Modal App Header */}
+        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#E50914] flex items-center justify-center shadow-lg" style={{ boxShadow: '0 0 20px rgba(229,9,20,0.4)' }}>
-              <BookOpen size={17} className="text-white" />
+            <div className="p-2 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-lg text-white shadow-md shadow-blue-500/10">
+              <Bot size={20} />
             </div>
             <div>
-              <h2 className="text-sm font-black text-white" style={{ letterSpacing: '-0.03em' }}>
-                Scholar<span className="text-[#E50914]">Tutor</span>
-              </h2>
-              <p className="text-[10px] text-white/30">Powered by Claude AI · Image gen by Pollinations</p>
-            </div>
-            <div className="flex items-center gap-1.5 ml-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[10px] text-emerald-400 font-semibold">Online</span>
+              <h3 className="text-white font-semibold text-base">AI Academic Tutor</h3>
+              <p className="text-slate-400 text-xs flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                Online & Ready
+              </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-all"
-          >
-            <X size={16} />
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition p-1.5 hover:bg-slate-800 rounded-lg">
+            <X size={18} />
           </button>
         </div>
 
-      {/* 1. This closes out your message list mapping stream layout */}
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {/* ... your inner message text content ... */}
-          </div>
-        ))}
-
-      </div> {/* 2. This explicitly closes your scrolling chat box message container div */}
-
-      {/* 3. Drop the new form wrapper directly HERE (outside the message loop!) */}
-      <div className="p-4 bg-slate-950 border-t border-slate-800">
-        <form onSubmit={handleSend} className="flex items-center gap-3 bg-slate-900 border border-slate-700/60 rounded-xl px-4 py-2.5 focus-within:border-blue-500/80 transition-all">
-          
-          <label className="cursor-pointer text-slate-400 hover:text-blue-400 p-1.5 hover:bg-slate-800 rounded-lg transition shrink-0 flex items-center justify-center">
-            <Paperclip size={18} />
-            <input 
-              type="file" 
-              className="hidden" 
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) alert(`Selected file: ${file.name}`);
-              }} 
-            />
-          </label>
-
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask anything... e.g., 'Explain Balance of Trade'"
-            rows={1}
-            className="flex-1 bg-transparent text-white placeholder-slate-500 text-sm focus:outline-none resize-none py-1.5 max-h-28"
-            style={{ fontFamily: 'Inter, sans-serif' }}
-          />
-
-          <button 
-            type="submit" 
-            disabled={!input.trim()} 
-            className="text-slate-400 hover:text-blue-500 disabled:text-slate-700 p-1.5 hover:bg-slate-800 rounded-lg transition shrink-0 flex items-center justify-center"
-          >
-            <Send size={18} />
-          </button>
-        </form>
-      </div>
-
-    </div> {/* 4. Closes main modal card */}
-  </div> {/* 5. Closes full-screen dim background overlay */}
-);
-                    <img
-                      src={msg.imageUrl}
-                      alt="Generated diagram"
-                      className="rounded-xl w-full max-w-md border border-white/10"
-                      onError={e => {
-                        const parent = (e.target as HTMLImageElement).parentElement;
-                        if (parent) parent.innerHTML = '<p class="text-xs text-white/30 italic">Image generation timed out. Try again!</p>';
-                      }}
-                    />
-                  </div>
+        {/* Scrolling Chat Content Canvas Area */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-900/40">
+          {messages.map((msg) => (
+            <div key={msg.id} className={`flex gap-3.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              {msg.role !== 'user' && (
+                <div className="w-8 h-8 rounded-lg bg-blue-950 border border-blue-800/40 flex items-center justify-center text-blue-400 shrink-0 shadow-sm">
+                  <Sparkles size={14} />
+                </div>
+              )}
+              
+              <div className={`max-w-[82%] rounded-xl px-4 py-3 text-sm leading-relaxed shadow-sm
+                ${msg.role === 'user' 
+                  ? 'bg-blue-600 text-white rounded-tr-none' 
+                  : 'bg-slate-800 text-slate-100 border border-slate-700/60 rounded-tl-none'
+                }`}
+              >
+                {msg.role === 'user' ? (
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                ) : (
+                  /* 🟢 Rich Text & Table Renderer Formatting Context Engine */
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]} 
+                    className="prose prose-invert prose-sm max-w-none space-y-2.5
+                      prose-headings:font-semibold prose-headings:text-white prose-headings:mt-3 prose-headings:mb-1
+                      prose-h1:text-base prose-h2:text-sm prose-h3:text-xs
+                      prose-strong:text-blue-400 prose-strong:font-bold
+                      prose-ul:list-disc prose-ul:pl-4 prose-ol:list-decimal prose-ol:pl-4
+                      prose-table:w-full prose-table:my-2 prose-table:border-collapse 
+                      prose-th:bg-slate-950 prose-th:text-slate-200 prose-th:p-2 prose-th:border prose-th:border-slate-700 prose-th:text-left
+                      prose-td:p-2 prose-td:border prose-td:border-slate-700 prose-td:text-slate-300"
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
                 )}
-                <p className="text-[10px] mt-1.5 opacity-30">
-                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
               </div>
+
+              {msg.role === 'user' && (
+                <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 shrink-0 shadow-sm">
+                  <User size={14} />
+                </div>
+              )}
             </div>
           ))}
 
-          {/* Loading dots */}
           {loading && (
-            <div className="flex gap-3 justify-start">
-              <div className="w-7 h-7 rounded-lg bg-[#E50914]/20 flex items-center justify-center flex-shrink-0 mt-1">
-                <Sparkles size={13} className="text-[#E50914]" />
+            <div className="flex gap-3.5 justify-start">
+              <div className="w-8 h-8 rounded-lg bg-blue-950 border border-blue-800/40 flex items-center justify-center text-blue-400 shrink-0 animate-pulse">
+                <Bot size={14} />
               </div>
-              <div className="bg-white/5 border border-white/8 rounded-2xl rounded-bl-sm px-4 py-3">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
+              <div className="bg-slate-800 border border-slate-700/60 rounded-xl rounded-tl-none px-4 py-3 text-sm flex items-center gap-1.5 text-slate-400 shadow-sm">
+                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce"></span>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="px-4 sm:px-6 py-4 border-t border-white/5" style={{ background: 'rgba(255,255,255,0.01)' }}>
-          {/* Quick prompts */}
-          <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-hide pb-1">
-            {['Explain a concept', 'Help with homework', 'Draw a diagram', 'Summarize a topic'].map(prompt => (
-              <button
-                key={prompt}
-                onClick={() => setInput(prompt + ': ')}
-                className="text-[10px] font-semibold px-2.5 py-1 rounded-full border border-white/8 text-white/30 hover:text-white/60 hover:border-white/20 transition-all whitespace-nowrap flex-shrink-0"
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
+        {/* Form Entry Field Area Dashboard Section */}
+        <div className="p-4 bg-slate-950 border-t border-slate-800">
+          <form onSubmit={handleSend} className="flex items-center gap-3 bg-slate-900 border border-slate-700/60 rounded-xl px-4 py-2.5 focus-within:border-blue-500/80 transition-all">
+            
+            {/* 🟢 Interactive Document Upload Button Clip */}
+            <label className="cursor-pointer text-slate-400 hover:text-blue-400 p-1.5 hover:bg-slate-800 rounded-lg transition shrink-0 flex items-center justify-center">
+              <Paperclip size={18} />
+              <input 
+                type="file" 
+                className="hidden" 
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) alert(`Selected attachment payload file: ${file.name}`);
+                }} 
+              />
+            </label>
 
-          <div className="flex gap-3 items-end">
+            {/* 🟢 High contrast typography and dark slate background container configuration */}
             <textarea
-              ref={textareaRef}
               value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask anything... e.g. 'Draw the water cycle'"
-          rows={1}
-          style={{ fontFamily: 'Inter, sans-serif', maxHeight: '120px' }}
-              onInput={e => {
-                const t = e.target as HTMLTextAreaElement;
-                t.style.height = 'auto';
-                t.style.height = Math.min(t.scrollHeight, 120) + 'px';
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend(e);
+                }
               }}
+              placeholder="Ask anything... e.g., 'Explain Balance of Trade'"
+              rows={1}
+              className="flex-1 bg-transparent text-white placeholder-slate-500 text-sm focus:outline-none resize-none py-1.5 max-h-28"
+              style={{ fontFamily: 'Inter, sans-serif' }}
             />
-            <button
-              onClick={sendMessage}
-              disabled={!input.trim() || loading}
-              className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-              style={{ background: '#E50914', boxShadow: input.trim() ? '0 4px 15px rgba(229,9,20,0.35)' : 'none' }}
+
+            <button 
+              type="submit" 
+              disabled={!input.trim() || loading} 
+              className="text-slate-400 hover:text-blue-400 disabled:text-slate-700 p-1.5 hover:bg-slate-800 rounded-lg transition shrink-0 flex items-center justify-center"
             >
-              <Send size={16} className="text-white" />
+              <Send size={18} />
             </button>
-          </div>
-          <p className="text-[10px] text-white/15 mt-2 text-center">
-            Enter to send · Shift+Enter for new line · Say "draw" or "diagram" for images
-          </p>
+          </form>
         </div>
+
       </div>
     </div>
   );
