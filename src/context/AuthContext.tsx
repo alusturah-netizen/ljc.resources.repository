@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ? 'student' : 'teacher';
       const { data: newProfile } = await supabase
         .from('profiles')
-        .insert({ id: uid, email: user.email, role })
+        .upsert({ id: uid, email: user.email, role })
         .select()
         .single();
       setProfile(newProfile as Profile ?? null);
