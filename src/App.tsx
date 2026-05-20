@@ -8,7 +8,7 @@ import { useAuth } from './context/AuthContext';
 import AuthPage from './pages/AuthPage';
 import UploadModal from './components/UploadModal';
 
-interface resources {
+interface Resource {
   id: string;
   title: string;
   category: string;
@@ -19,9 +19,9 @@ interface resources {
 }
 
 const CATEGORIES = ['Mathematics', 'Science', 'Art', 'Social Sciences'] as const;
-type category = typeof CATEGORIES[number];
+type Category = typeof CATEGORIES[number];
 
-const CATEGORY_CONFIG: Record<category, {
+const CATEGORY_CONFIG: Record<Category, {
   icon: React.ElementType;
   gradient: string;
   accent: string;
