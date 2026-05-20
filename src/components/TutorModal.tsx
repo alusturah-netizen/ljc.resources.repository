@@ -196,28 +196,48 @@ Format your responses cleanly. Use bullet points or numbered steps where helpful
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-5 scrollbar-hide">
-          {messages.map(msg => (
-            <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {msg.role === 'assistant' && (
-                <div className="w-7 h-7 rounded-lg bg-[#E50914]/20 flex items-center justify-center flex-shrink-0 mt-1">
-                  <Sparkles size={13} className="text-[#E50914]" />
-                </div>
-              )}
-              <div
-                className={`max-w-[82%] rounded-2xl px-4 py-3 ${
-                  msg.role === 'user'
-                    ? 'bg-[#E50914] text-white rounded-br-sm'
-                    : 'bg-white/5 border border-white/8 text-white/90 rounded-bl-sm'
-                }`}
-              >
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                {msg.imageUrl && (
-                  <div className="mt-3">
-                    <div className="text-[10px] text-white/40 mb-1.5 flex items-center gap-1">
-                      <Sparkles size={10} />
-                      Generated illustration
-                    </div>
+       {/* Input Action Form Area */}
+      <div className="p-4 bg-slate-950 border-t border-slate-800">
+        <form onSubmit={handleSend} className="flex items-center gap-3 bg-slate-900 border border-slate-700/60 rounded-xl px-4 py-2.5 focus-within:border-blue-500/80 transition-all">
+          
+          {/* 🟢 The New Upload Attachment Button */}
+          <label className="cursor-pointer text-slate-400 hover:text-blue-400 p-1.5 hover:bg-slate-800 rounded-lg transition shrink-0 flex items-center justify-center">
+            <Paperclip size={18} />
+            <input 
+              type="file" 
+              className="hidden" 
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) alert(`Selected file: ${file.name}`);
+              }} 
+            />
+          </label>
+
+          {/* 🟢 Background is transparent to show slate-900, text color is forced to high-contrast white */}
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend(e);
+              }
+            }}
+            placeholder="Ask anything... e.g., 'Draw the water cycle'"
+            rows={1}
+            className="flex-1 bg-transparent text-white placeholder-slate-500 text-sm focus:outline-none resize-none py-1.5 max-h-28"
+            style={{ fontFamily: 'Inter, sans-serif' }}
+          />
+
+          <button 
+            type="submit" 
+            disabled={!input.trim()} 
+            className="text-slate-400 hover:text-blue-500 disabled:text-slate-700 p-1.5 hover:bg-slate-800 rounded-lg transition shrink-0 flex items-center justify-center"
+          >
+            <Send size={18} />
+          </button>
+        </form>
+      </div>
                     <img
                       src={msg.imageUrl}
                       alt="Generated diagram"
