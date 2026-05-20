@@ -275,10 +275,9 @@ Format your responses cleanly. Use bullet points or numbered steps where helpful
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder='Ask anything... e.g. "Draw the water cycle" or "Explain Newton\'s laws"'
-              rows={1}
-              className="flex-1 bg-white/5 border border-white/8 text-white text-sm placeholder-white/20 px-4 py-3 rounded-xl outline-none resize-none transition-all focus:border-[#E50914]/40 focus:bg-white/8"
-              style={{ fontFamily: 'Inter, sans-serif', maxHeight: '120px' }}
+              placeholder="Ask anything... e.g. 'Draw the water cycle'"
+          rows={1}
+          style={{ fontFamily: 'Inter, sans-serif', maxHeight: '120px' }}
               onInput={e => {
                 const t = e.target as HTMLTextAreaElement;
                 t.style.height = 'auto';
