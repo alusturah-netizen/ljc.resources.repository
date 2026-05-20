@@ -195,12 +195,19 @@ Format your responses cleanly. Use bullet points or numbered steps where helpful
           </button>
         </div>
 
-        {/* Messages */}
-       {/* Input Action Form Area */}
+      {/* 1. This closes out your message list mapping stream layout */}
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            {/* ... your inner message text content ... */}
+          </div>
+        ))}
+
+      </div> {/* 2. This explicitly closes your scrolling chat box message container div */}
+
+      {/* 3. Drop the new form wrapper directly HERE (outside the message loop!) */}
       <div className="p-4 bg-slate-950 border-t border-slate-800">
         <form onSubmit={handleSend} className="flex items-center gap-3 bg-slate-900 border border-slate-700/60 rounded-xl px-4 py-2.5 focus-within:border-blue-500/80 transition-all">
           
-          {/* 🟢 The New Upload Attachment Button */}
           <label className="cursor-pointer text-slate-400 hover:text-blue-400 p-1.5 hover:bg-slate-800 rounded-lg transition shrink-0 flex items-center justify-center">
             <Paperclip size={18} />
             <input 
@@ -213,17 +220,10 @@ Format your responses cleanly. Use bullet points or numbered steps where helpful
             />
           </label>
 
-          {/* 🟢 Background is transparent to show slate-900, text color is forced to high-contrast white */}
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend(e);
-              }
-            }}
-            placeholder="Ask anything... e.g., 'Draw the water cycle'"
+            placeholder="Ask anything... e.g., 'Explain Balance of Trade'"
             rows={1}
             className="flex-1 bg-transparent text-white placeholder-slate-500 text-sm focus:outline-none resize-none py-1.5 max-h-28"
             style={{ fontFamily: 'Inter, sans-serif' }}
@@ -238,6 +238,10 @@ Format your responses cleanly. Use bullet points or numbered steps where helpful
           </button>
         </form>
       </div>
+
+    </div> {/* 4. Closes main modal card */}
+  </div> {/* 5. Closes full-screen dim background overlay */}
+);
                     <img
                       src={msg.imageUrl}
                       alt="Generated diagram"
