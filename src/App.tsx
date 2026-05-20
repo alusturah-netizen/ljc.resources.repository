@@ -334,18 +334,15 @@ function Library() {
   async function fetchAll() {
     setLoading(true);
     const { data } = await supabase
-     .from('resources')
+    .from('resources')
         .select('id, title, category, file_url, access_level, cover_url, author')
         .order('id', { ascending: false });
 
-      // 🟢 This prints the data cleanly to the developer console
+      // 🟢 These will print perfectly to your browser console now!
       console.log("DATABASE RESPONSE DATA:", data);
       console.log("DATABASE FETCH ERROR:", error);
 
       setAllResources(data ?? []);
-      setLoading(false);
-    } catch (err) {
-      console.error("System catch error:", err);
       setLoading(false);
     }
 
