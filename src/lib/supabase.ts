@@ -8,3 +8,4 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+console.log("CURRENTLY CONNECTING TO:", import.meta.env.VITE_SUPABASE_URL);
