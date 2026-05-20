@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Search, BookOpen, FlaskConical, Palette, Globe,
-  ChevronRight, File, Vault, LogOut, GraduationCap,
+  ChevronRight, File, Vault, LogOut, GraduationCap, Paperclip, Bot, Send,
   User as UserIcon, Upload as UploadIcon, X, Sparkles,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
