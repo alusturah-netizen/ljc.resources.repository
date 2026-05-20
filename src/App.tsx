@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Search, BookOpen, FlaskConical, Palette, Globe,
-  ChevronRight, File, Vault, LogOut, GraduationCap, User as UserIcon, Upload as UploadIcon, X,
+  ChevronRight, File, Vault, LogOut, GraduationCap,
+  User as UserIcon, Upload as UploadIcon, X, Sparkles,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { useAuth } from './context/AuthContext';
 import AuthPage from './pages/AuthPage';
 import UploadModal from './components/UploadModal';
+import TutorModal from './components/TutorModal';
 
 interface Resource {
   id: string;
@@ -17,6 +19,7 @@ interface Resource {
   cover_url: string | null;
   author: string | null;
   classes: string[] | null;
+  resource_type: 'textbook' | 'notes';
 }
 
 const CATEGORIES = ['Mathematics', 'Science', 'Art', 'Social Sciences'] as const;
@@ -24,6 +27,32 @@ type Category = typeof CATEGORIES[number];
 
 const CLASSES = ['JSS1', 'JSS2', 'JSS3', 'SS1', 'SS2', 'SS3'] as const;
 type Class = typeof CLASSES[number];
+
+// Senior classes in ascending order — textbooks tagged for a lower class are visible to higher ones
+const SENIOR_ORDER: Class[] = ['SS1', 'SS2', 'SS3'];
+
+/** Returns true if this resource should be visible for the selected class */
+function resourceMatchesClass(resource: Resource, selectedClass: Class): boolean {
+  const classes = resource.classes ?? [];
+  if (classes.length === 0) return true; // untagged = show everywhere
+
+  if (resource.resource_type === 'notes') {
+    // Notes: exact match only
+    return classes.includes(selectedClass);
+  }
+
+  // Textbooks: SS1 content also shows for SS2 and SS3, SS2 also shows for SS3
+  if (SENIOR_ORDER.includes(selectedClass)) {
+    const selectedIdx = SENIOR_ORDER.indexOf(selectedClass);
+    return classes.some(c => {
+      const cIdx = SENIOR_ORDER.indexOf(c as Class);
+      return cIdx !== -1 && cIdx <= selectedIdx;
+    });
+  }
+
+  // JSS: exact match
+  return classes.includes(selectedClass);
+}
 
 const CATEGORY_CONFIG: Record<Category, {
   icon: React.ElementType;
@@ -82,14 +111,8 @@ function ResourceModal({ resource, onClose }: { resource: Resource; onClose: () 
   const accent = config?.accent ?? '#E50914';
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="relative bg-[#111] border border-white/10 rounded-2xl w-[360px] max-w-[92vw] shadow-2xl overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm" onClick={onClose}>
+      <div className="relative bg-[#111] border border-white/10 rounded-2xl w-[360px] max-w-[92vw] shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
         {resource.cover_url ? (
           <img src={resource.cover_url} alt={resource.title} className="w-full h-52 object-cover" />
         ) : (
@@ -98,36 +121,27 @@ function ResourceModal({ resource, onClose }: { resource: Resource; onClose: () 
             <p className="text-xs mt-2" style={{ color: accent, opacity: 0.4 }}>No Cover Image</p>
           </div>
         )}
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white/70 hover:text-white transition-colors"
-        >
+        <button onClick={onClose} className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white/70 hover:text-white transition-colors">
           <X size={14} />
         </button>
         <div className="p-5">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <span
-              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-              style={{ background: `${accent}22`, color: accent }}
-            >
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: `${accent}22`, color: accent }}>
               {resource.category}
             </span>
-            {resource.classes && resource.classes.length > 0 && resource.classes.map(cls => (
-              <span key={cls} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-white/50">
-                {cls}
-              </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/8 text-white/40">
+              {resource.resource_type === 'notes' ? '📝 Notes' : '📚 Textbook'}
+            </span>
+            {(resource.classes ?? []).map(cls => (
+              <span key={cls} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/8 text-white/40">{cls}</span>
             ))}
           </div>
-          <h2 className="text-white font-black text-lg leading-tight mb-1" style={{ letterSpacing: '-0.03em' }}>
-            {resource.title}
-          </h2>
-          {resource.author && (
-            <p className="text-white/40 text-sm mb-4">by {resource.author}</p>
-          )}
+          <h2 className="text-white font-black text-lg leading-tight mb-1" style={{ letterSpacing: '-0.03em' }}>{resource.title}</h2>
+          {resource.author && <p className="text-white/40 text-sm mb-4">by {resource.author}</p>}
           <button
             onClick={() => resource.file_url && window.open(resource.file_url, '_blank')}
             disabled={!resource.file_url}
-            className="w-full py-2.5 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-2.5 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 disabled:opacity-40"
             style={{ background: '#E50914', boxShadow: '0 4px 20px rgba(229,9,20,0.3)' }}
           >
             ↓ Download Resource
@@ -151,31 +165,21 @@ function ResourceCard({ resource }: { resource: Resource }) {
         className="group flex-shrink-0 w-56 rounded-2xl border border-white/5 bg-[#0d0d0d] p-4 transition-all duration-300 hover:scale-[1.02] hover:border-white/20 hover:shadow-2xl cursor-pointer"
         onClick={() => setShowModal(true)}
       >
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110"
-          style={{ background: `${accent}22`, color: accent }}
-        >
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110" style={{ background: `${accent}22`, color: accent }}>
           <File size={20} />
         </div>
-        <h3 className="text-sm font-bold text-white leading-snug mb-2 line-clamp-2" style={{ letterSpacing: '-0.02em' }}>
-          {resource.title}
-        </h3>
-        {resource.classes && resource.classes.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {resource.classes.map(cls => (
-              <span key={cls} className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/8 text-white/35">
-                {cls}
-              </span>
-            ))}
-          </div>
-        )}
+        <h3 className="text-sm font-bold text-white leading-snug mb-2 line-clamp-2" style={{ letterSpacing: '-0.02em' }}>{resource.title}</h3>
+        <div className="flex flex-wrap gap-1 mb-2">
+          {(resource.classes ?? []).map(cls => (
+            <span key={cls} className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/8 text-white/35">{cls}</span>
+          ))}
+        </div>
         <p className="text-[11px] text-white/40">{resource.category}</p>
       </div>
     </>
   );
 }
 
-// ─── Vault Empty ──────────────────────────────────────────────────────────────
 function VaultEmpty() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -188,30 +192,21 @@ function VaultEmpty() {
   );
 }
 
-// ─── Category Row ─────────────────────────────────────────────────────────────
-interface CategoryRowProps {
+function CategoryRow({ category, resources, loading, onCategoryClick, activeCategory }: {
   category: Category;
   resources: Resource[];
   loading: boolean;
   onCategoryClick: (cat: Category) => void;
   activeCategory: Category | null;
-}
-
-function CategoryRow({ category, resources, loading, onCategoryClick, activeCategory }: CategoryRowProps) {
+}) {
   const config = CATEGORY_CONFIG[category];
   const Icon = config.icon;
   const isActive = activeCategory === category;
 
   return (
     <section>
-      <button
-        onClick={() => onCategoryClick(category)}
-        className="group flex items-center gap-3 mb-4 w-full text-left hover:opacity-80 transition-opacity"
-      >
-        <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
-          style={{ background: `${config.accent}22`, color: config.accent }}
-        >
+      <button onClick={() => onCategoryClick(category)} className="group flex items-center gap-3 mb-4 w-full text-left hover:opacity-80 transition-opacity">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-110" style={{ background: `${config.accent}22`, color: config.accent }}>
           <Icon size={16} />
         </div>
         <div>
@@ -220,18 +215,11 @@ function CategoryRow({ category, resources, loading, onCategoryClick, activeCate
         </div>
         <div className="ml-auto flex items-center gap-2">
           {!loading && (
-            <span
-              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-              style={{ background: `${config.accent}22`, color: config.accent }}
-            >
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: `${config.accent}22`, color: config.accent }}>
               {resources.length} resources
             </span>
           )}
-          <ChevronRight
-            size={16}
-            className="text-white/20 transition-transform duration-200 group-hover:translate-x-1"
-            style={{ transform: isActive ? 'rotate(90deg)' : undefined }}
-          />
+          <ChevronRight size={16} className="text-white/20 transition-transform duration-200 group-hover:translate-x-1" style={{ transform: isActive ? 'rotate(90deg)' : undefined }} />
         </div>
       </button>
       {loading ? <SkeletonGrid /> : resources.length === 0 ? <VaultEmpty /> : (
@@ -243,7 +231,6 @@ function CategoryRow({ category, resources, loading, onCategoryClick, activeCate
   );
 }
 
-// ─── Bento Grid ───────────────────────────────────────────────────────────────
 function BentoGrid({ counts, loading, onSelect, active }: {
   counts: Record<string, number>;
   loading: boolean;
@@ -265,17 +252,12 @@ function BentoGrid({ counts, loading, onSelect, active }: {
           >
             <div className={`absolute inset-0 bg-gradient-to-br ${config.gradient} opacity-60`} />
             <div className="relative z-10">
-              <div
-                className="w-10 h-10 rounded-2xl flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110"
-                style={{ background: `${config.accent}22`, color: config.accent }}
-              >
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110" style={{ background: `${config.accent}22`, color: config.accent }}>
                 <Icon size={20} />
               </div>
               <h3 className="text-sm font-black text-white mb-0.5" style={{ letterSpacing: '-0.04em' }}>{cat}</h3>
               <p className="text-[11px] text-white/40 leading-relaxed mb-3">{config.description}</p>
-              {loading ? (
-                <div className="h-5 w-20 rounded-full bg-white/10 animate-pulse" />
-              ) : (
+              {loading ? <div className="h-5 w-20 rounded-full bg-white/10 animate-pulse" /> : (
                 <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: `${config.accent}22`, color: config.accent }}>
                   {counts[cat] ?? 0}
                 </span>
@@ -289,34 +271,28 @@ function BentoGrid({ counts, loading, onSelect, active }: {
   );
 }
 
-// ─── fuzzy client-side match ──────────────────────────────────────────────────
+// ─── Fuzzy search ─────────────────────────────────────────────────────────────
 function fuzzyMatch(resource: Resource, query: string): boolean {
   const q = query.toLowerCase().trim();
   if (!q) return true;
-
   const terms = q.split(/\s+/);
-
   return terms.every(term => {
     const inTitle = resource.title.toLowerCase().includes(term);
     const inCategory = resource.category.toLowerCase().includes(term);
     const inAuthor = (resource.author ?? '').toLowerCase().includes(term);
     const inClasses = (resource.classes ?? []).some(c => c.toLowerCase().includes(term));
-
-    // Partial subject matches e.g. "bios" → "Biology"
     const subjects: Record<string, string[]> = {
       'bio': ['biology'], 'bios': ['biology'],
       'phys': ['physics'], 'chem': ['chemistry'],
       'math': ['mathematics'], 'maths': ['mathematics'],
       'comp': ['computer science'], 'cs': ['computer science'],
-      'soc': ['social sciences'], 'geo': ['geography'],
-      'eng': ['english'], 'lit': ['literature'],
+      'soc': ['social sciences'], 'econ': ['economics', 'social sciences'],
+      'geo': ['geography', 'social sciences'], 'eng': ['english'],
     };
     const expanded = subjects[term] ?? [];
     const inExpanded = expanded.some(e =>
-      resource.title.toLowerCase().includes(e) ||
-      resource.category.toLowerCase().includes(e)
+      resource.title.toLowerCase().includes(e) || resource.category.toLowerCase().includes(e)
     );
-
     return inTitle || inCategory || inAuthor || inClasses || inExpanded;
   });
 }
@@ -333,12 +309,13 @@ function Library() {
   const [allResources, setAllResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showTutor, setShowTutor] = useState(false);
 
   async function fetchAll() {
     setLoading(true);
     const { data } = await supabase
       .from('resources')
-      .select('id, title, category, file_url, access_level, cover_url, author, classes')
+      .select('id, title, category, file_url, access_level, cover_url, author, classes, resource_type')
       .order('id', { ascending: false });
     setAllResources(data ?? []);
     setLoading(false);
@@ -346,18 +323,14 @@ function Library() {
 
   useEffect(() => { fetchAll(); }, [isTeacher]);
 
-  // Filter resources based on search, class, and category
   const filteredResources = useCallback(() => {
     let resources = allResources;
-
     if (activeClass) {
-      resources = resources.filter(r => (r.classes ?? []).includes(activeClass));
+      resources = resources.filter(r => resourceMatchesClass(r, activeClass));
     }
-
     if (query.trim()) {
       resources = resources.filter(r => fuzzyMatch(r, query));
     }
-
     return resources;
   }, [allResources, query, activeClass]);
 
@@ -383,6 +356,9 @@ function Library() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
+      {/* Tutor Modal */}
+      {showTutor && <TutorModal onClose={() => setShowTutor(false)} />}
+
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-white/5 bg-[#050505]/90 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
@@ -398,17 +374,7 @@ function Library() {
 
           <nav className="hidden md:flex items-center gap-6">
             {CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => {
-                  setActiveCategory(cat);
-                  setQuery('');
-                  setTimeout(() => {
-                    document.getElementById(`cat-${cat}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }, 50);
-                }}
-                className="text-xs font-semibold text-white/40 hover:text-white transition-colors duration-200"
-              >
+              <button key={cat} onClick={() => { setActiveCategory(cat); setQuery(''); setTimeout(() => document.getElementById(`cat-${cat}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }} className="text-xs font-semibold text-white/40 hover:text-white transition-colors duration-200">
                 {cat}
               </button>
             ))}
@@ -416,26 +382,16 @@ function Library() {
 
           <div className="flex items-center gap-3">
             {isTeacher && (
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="hidden sm:flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 hover:brightness-110 active:scale-95"
-                style={{ background: '#E50914', color: '#fff' }}
-              >
+              <button onClick={() => setShowUploadModal(true)} className="hidden sm:flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 hover:brightness-110 active:scale-95" style={{ background: '#E50914', color: '#fff' }}>
                 <UploadIcon size={13} />
                 Upload
               </button>
             )}
-            <div
-              className="hidden sm:flex items-center gap-2 text-[11px] font-bold px-3 py-1.5 rounded-full"
-              style={{ background: `${roleColor}15`, color: roleColor }}
-            >
+            <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold px-3 py-1.5 rounded-full" style={{ background: `${roleColor}15`, color: roleColor }}>
               <RoleIcon size={12} />
               <span className="capitalize">{profile?.role ?? 'user'}</span>
             </div>
-            <button
-              onClick={signOut}
-              className="flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition-colors duration-200 px-2 py-1.5 rounded-lg hover:bg-white/5"
-            >
+            <button onClick={signOut} className="flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition-colors duration-200 px-2 py-1.5 rounded-lg hover:bg-white/5">
               <LogOut size={13} />
               <span className="hidden sm:inline">Sign out</span>
             </button>
@@ -456,24 +412,12 @@ function Library() {
             <span className="text-[#E50914]">Library.</span> Reimagined.
           </h1>
           <p className="text-sm text-white/40 max-w-md mx-auto mb-8 leading-relaxed">
-            {isTeacher
-              ? 'Full access to all curated resources across every subject and access level.'
-              : 'Curated resources across Mathematics, Science, Art, and Social Sciences.'}
+            {isTeacher ? 'Full access to all curated resources across every subject and access level.' : 'Curated resources across Mathematics, Science, Art, and Social Sciences.'}
           </p>
 
           {/* Search */}
-          <div className="relative max-w-2xl mx-auto mb-6">
-            <div
-              className="relative rounded-2xl border transition-all duration-300"
-              style={{
-                background: 'rgba(255,255,255,0.04)',
-                backdropFilter: 'blur(20px)',
-                borderColor: searchFocused ? '#E50914' : 'rgba(255,255,255,0.1)',
-                boxShadow: searchFocused
-                  ? '0 0 0 3px rgba(229,9,20,0.15), 0 20px 60px rgba(229,9,20,0.1)'
-                  : '0 4px 24px rgba(0,0,0,0.4)',
-              }}
-            >
+          <div className="relative max-w-2xl mx-auto mb-5">
+            <div className="relative rounded-2xl border transition-all duration-300" style={{ background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(20px)', borderColor: searchFocused ? '#E50914' : 'rgba(255,255,255,0.1)', boxShadow: searchFocused ? '0 0 0 3px rgba(229,9,20,0.15), 0 20px 60px rgba(229,9,20,0.1)' : '0 4px 24px rgba(0,0,0,0.4)' }}>
               <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200" style={{ color: searchFocused ? '#E50914' : 'rgba(255,255,255,0.3)' }} />
               <input
                 type="text"
@@ -486,10 +430,7 @@ function Library() {
                 style={{ letterSpacing: '-0.01em' }}
               />
               {query && (
-                <button
-                  onMouseDown={e => { e.preventDefault(); setQuery(''); }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors w-5 h-5 flex items-center justify-center"
-                >
+                <button onMouseDown={e => { e.preventDefault(); setQuery(''); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors w-5 h-5 flex items-center justify-center">
                   <X size={14} />
                 </button>
               )}
@@ -514,17 +455,12 @@ function Library() {
               </button>
             ))}
             {activeClass && (
-              <button
-                onClick={() => setActiveClass(null)}
-                className="text-[11px] text-white/30 hover:text-white/60 transition-colors px-2"
-              >
-                Clear
-              </button>
+              <button onClick={() => setActiveClass(null)} className="text-[11px] text-white/30 hover:text-white/60 transition-colors px-2">Clear</button>
             )}
           </div>
         </section>
 
-        {/* Search / filter results */}
+        {/* Search results */}
         {isSearching && (
           <section>
             <div className="flex items-center gap-3 mb-4">
@@ -533,10 +469,7 @@ function Library() {
                 {query && <span className="text-[#E50914]"> for "{query}"</span>}
                 {activeClass && <span className="text-white/40"> in {activeClass}</span>}
               </h2>
-              <button
-                onClick={() => { setQuery(''); setActiveClass(null); }}
-                className="ml-auto text-xs text-white/30 hover:text-white/60 transition-colors"
-              >
+              <button onClick={() => { setQuery(''); setActiveClass(null); }} className="ml-auto text-xs text-white/30 hover:text-white/60 transition-colors">
                 Clear all
               </button>
             </div>
@@ -555,29 +488,15 @@ function Library() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-black text-white" style={{ letterSpacing: '-0.04em' }}>Browse by Subject</h2>
                 {activeCategory && (
-                  <button onClick={() => setActiveCategory(null)} className="text-xs text-white/30 hover:text-white/60 transition-colors">
-                    Clear filter
-                  </button>
+                  <button onClick={() => setActiveCategory(null)} className="text-xs text-white/30 hover:text-white/60 transition-colors">Clear filter</button>
                 )}
               </div>
               <BentoGrid counts={counts} loading={loading} onSelect={handleCategorySelect} active={activeCategory} />
             </section>
-
             <div className="space-y-6">
               {(activeCategory ? [activeCategory] : CATEGORIES).map(cat => (
-                <div
-                  key={cat}
-                  id={`cat-${cat}`}
-                  className="rounded-3xl border border-white/5 p-6"
-                  style={{ background: 'rgba(255,255,255,0.015)', boxShadow: '0 4px 40px rgba(0,0,0,0.4)' }}
-                >
-                  <CategoryRow
-                    category={cat}
-                    resources={byCategory(cat)}
-                    loading={loading}
-                    onCategoryClick={c => setActiveCategory(prev => prev === c ? null : c)}
-                    activeCategory={activeCategory}
-                  />
+                <div key={cat} id={`cat-${cat}`} className="rounded-3xl border border-white/5 p-6" style={{ background: 'rgba(255,255,255,0.015)', boxShadow: '0 4px 40px rgba(0,0,0,0.4)' }}>
+                  <CategoryRow category={cat} resources={byCategory(cat)} loading={loading} onCategoryClick={c => setActiveCategory(prev => prev === c ? null : c)} activeCategory={activeCategory} />
                 </div>
               ))}
             </div>
@@ -585,9 +504,19 @@ function Library() {
         )}
       </main>
 
+      {/* AI Tutor floating button */}
+      <button
+        onClick={() => setShowTutor(true)}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-5 py-3 rounded-2xl font-bold text-white text-sm shadow-2xl transition-all duration-200 hover:scale-105 active:scale-95"
+        style={{ background: 'linear-gradient(135deg, #E50914, #ff4d4d)', boxShadow: '0 8px 30px rgba(229,9,20,0.5)' }}
+      >
+        <Sparkles size={16} />
+        AI Tutor
+      </button>
+
       <UploadModal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} onSuccess={fetchAll} />
 
-      <footer className="border-t border-white/5 mt-20 py-8">
+      <footer className="border-t border-white/5 mt-20 py-8 pb-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded bg-[#E50914] flex items-center justify-center">
@@ -611,7 +540,6 @@ function Library() {
 
 export default function App() {
   const { session, loading } = useAuth();
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center">
@@ -624,7 +552,6 @@ export default function App() {
       </div>
     );
   }
-
   if (!session) return <AuthPage />;
   return <Library />;
 }
