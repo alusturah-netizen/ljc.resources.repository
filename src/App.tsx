@@ -340,7 +340,7 @@ function Library() {
 
       // 🟢 These will print perfectly to your browser console now!
       console.log("DATABASE RESPONSE DATA:", data);
-      console.log("DATABASE FETCH ERROR:", error);
+      
 
       setAllResources(data ?? []);
       setLoading(false);
